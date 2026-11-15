@@ -1,0 +1,3291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>半场战术沙盘</title>
+<style>
+  :root{
+    --bg:#F4F2ED; --card:#FFFFFF; --line:#E4DFD4; --ink:#2C2C2A;
+    --sub:#6E6A61; --faint:#9A958C;
+    --atk:#D85A30; --def:#185FA5; --ball:#E8912A; --ok:#1D9E75;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    background:var(--bg); color:var(--ink); overflow:hidden;
+  }
+  .app{position:fixed;top:0;right:0;bottom:0;left:0;display:flex;overflow:hidden}
+
+  .stage{flex:1;display:flex;flex-direction:column;min-width:0;padding:12px;gap:9px}
+  .bar{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .spacer{flex:1}
+  .sep{width:1px;height:16px;background:var(--line);margin:0 2px}
+
+  button{
+    font-family:inherit;font-size:12.5px;color:var(--ink);cursor:pointer;
+    background:var(--card);border:1px solid var(--line);border-radius:8px;
+    padding:6px 11px;transition:border-color .12s,background .12s,color .12s;
+  }
+  button:hover{border-color:#C9C1B0}
+  button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  button.ghost{border-style:dashed;color:var(--sub)}
+  button:active{transform:translateY(.5px)}
+
+  .cv-wrap{flex:1;min-height:0;position:relative;background:var(--card);
+    border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  canvas{display:block;touch-action:none}
+  #cv{position:absolute;left:0;top:0}
+
+  .hint{position:absolute;left:14px;bottom:12px;font-size:11.5px;color:var(--faint);
+    pointer-events:none;line-height:1.5;max-width:60%;
+    background:rgba(252,249,243,.9);border-radius:6px;padding:3px 8px}
+  .legend{position:absolute;left:14px;top:12px;font-size:11.5px;color:var(--sub);
+    display:flex;align-items:center;gap:5px;pointer-events:none}
+  .sw{width:9px;height:9px;border-radius:50%;display:inline-block}
+  .sw-a{background:var(--atk)}
+  .sw-d{background:#fff;border:2px solid var(--def);width:7px;height:7px}
+  .sw-b{background:var(--ball);margin-left:9px}
+  .ver{margin-left:auto;color:#C9C1B0;font-size:10px;letter-spacing:.04em}
+  #errbox{display:none;position:absolute;left:12px;right:12px;top:44px;z-index:9;
+    background:#FCEBEB;border:1px solid #E24B4A;border-radius:8px;padding:10px 12px;
+    font-size:12px;line-height:1.6;color:#791F1F;white-space:pre-wrap;
+    max-height:70%;overflow:auto}
+
+  .tline{display:flex;align-items:center;gap:10px;padding:0 2px}
+  .tline .lbl{font-size:11.5px;color:var(--sub);font-variant-numeric:tabular-nums;min-width:52px}
+  .track{flex:1;position:relative;display:flex;align-items:center;min-width:0}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:3px;border-radius:2px;
+    background:#DDD6C7;outline:none;width:100%;display:block;cursor:pointer}
+  .dur{width:54px;flex:0 0 54px;border:none;background:transparent;font:inherit;
+    font-size:10.5px;color:var(--faint);text-align:right;padding:1px 2px;
+    font-variant-numeric:tabular-nums;-moz-appearance:textfield;
+    font-family:inherit;border-radius:4px}
+  .dur::-webkit-outer-spin-button,.dur::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .dur:focus{outline:none;color:var(--ink);background:#fff;border:1px solid var(--line)}
+  .tline button{font-size:10.5px;padding:2px 7px;line-height:1.5;flex:0 0 auto}
+  .marks{position:absolute;left:0;right:0;top:50%;height:0;pointer-events:none}
+  .mk{position:absolute;top:-9px;width:2px;height:9px;background:var(--ball);
+    border-radius:1px;transform:translateX(-1px)}
+  .mk.def{background:var(--def);top:-13px;height:6px}
+  .evdot{width:6px;height:6px;border-radius:50%;flex:0 0 6px}
+  .evdot.p{background:var(--ball)}
+  .evdot.d{background:var(--def)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;
+    border-radius:50%;background:var(--ink);border:2px solid #fff;box-shadow:0 0 0 1px #C9C1B0}
+  input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;
+    background:var(--ink);border:2px solid #fff;box-shadow:0 0 0 1px #C9C1B0}
+
+  .panel{width:302px;flex:0 0 302px;padding:12px 12px 12px 0;display:flex;
+    flex-direction:column;gap:9px;overflow-y:auto}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 12px}
+  .card h3{font-size:12px;font-weight:500;color:var(--sub);letter-spacing:.02em;margin-bottom:9px;
+    display:flex;align-items:baseline;gap:6px}
+  .card h3 .tag{margin-left:auto;font-size:10px;font-weight:400;color:#A8A092;
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  .card h3 .tag.live{color:#2F6FA8}
+  .row{display:flex;align-items:center;gap:6px}
+  .row.wrap{flex-wrap:wrap}
+
+  .prow{display:flex;align-items:center;gap:8px;padding:5px 0;border-radius:6px;cursor:pointer}
+  .prow:hover{background:#FAF8F3}
+  .prow.sel{background:#FDF3EE}
+  .dot{width:18px;height:18px;border-radius:50%;background:var(--atk);color:#fff;
+    font-size:10.5px;display:grid;place-items:center;flex:0 0 18px;font-variant-numeric:tabular-nums}
+  .pname{font-size:11.5px;color:var(--sub);width:30px;flex:0 0 30px}
+  details.card summary{list-style:none;cursor:pointer;font-size:12px;font-weight:500;
+    color:var(--sub);letter-spacing:.02em;display:flex;align-items:center;gap:6px}
+  details.card summary::-webkit-details-marker{display:none}
+  details.card summary::after{content:'展开';margin-left:auto;font-weight:400;
+    font-size:11px;color:var(--faint)}
+  details.card[open] summary::after{content:'收起'}
+  details.card[open] summary{margin-bottom:9px}
+  .phead{display:flex;gap:6px;font-size:10px;color:var(--faint);margin-bottom:4px}
+  .phead span:nth-child(1){flex:0 0 18px}
+  .phead span:nth-child(2){flex:1}
+  .phead span:nth-child(3),.phead span:nth-child(4){flex:0 0 50px;text-align:right}
+  .prow2{display:flex;align-items:center;gap:5px;padding:3px 0}
+  .prow2 .pname{width:26px;flex:0 0 26px}
+  .pinp{width:44px;flex:0 0 44px;padding:2px 4px;border:1px solid var(--line);
+    border-radius:5px;font-size:11px;text-align:right;font-variant-numeric:tabular-nums;
+    background:#fff;color:var(--ink);font-family:inherit}
+  .pinp:focus{outline:none;border-color:#B9B09C}
+  .pct{font-size:10px;color:var(--faint);flex:0 0 8px}
+  .pdiv{height:1px;background:#F2EDE2;margin:7px 0 3px}
+  .dot.d{background:var(--def)}
+  .adv{margin-top:9px;padding-top:9px;border-top:1px solid #F2EDE2}
+  .advrow{display:flex;align-items:center;gap:5px;margin-bottom:6px}
+  .albl{font-size:11px;color:var(--sub)}
+  .advrow .pinp{width:52px;flex:0 0 52px}
+  .advline{font-size:11px;color:var(--sub);line-height:1.6;font-variant-numeric:tabular-nums}
+  .advline b{color:var(--ink);font-weight:500}
+  .big{font-size:34px;font-weight:500;line-height:1.05;font-variant-numeric:tabular-nums;
+    color:var(--ink);letter-spacing:-.01em;margin:1px 0 3px}
+  .shotmeta{font-size:11px;color:var(--sub);line-height:1.5;margin-bottom:8px}
+  .evdot.s{background:#2C2C2A}
+  .evdot.t{background:#E24B4A}
+  .mk.t{background:#E24B4A;top:-13px;height:8px}
+  .mk.s{background:#2C2C2A;top:-16px;height:5px}
+  .pshot{font-size:10.5px;color:var(--faint);flex:0 0 44px;
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  .meter{flex:1;height:4px;background:#EDE8DD;border-radius:3px;overflow:hidden;min-width:24px}
+  .meter i{display:block;height:100%;background:var(--ok);border-radius:3px;
+    transition:width .1s linear,background .2s}
+  .val{font-size:11px;color:var(--sub);width:22px;text-align:right;
+    font-variant-numeric:tabular-nums;flex:0 0 22px}
+
+  #rhythmList{display:flex;flex-direction:column;gap:2px;margin-bottom:9px}
+  .gate{font-size:10px;line-height:1;padding:4px 8px;border-radius:10px;
+    border:1px solid var(--line);background:#fff;color:var(--faint);cursor:pointer;
+    margin-left:auto;font-family:inherit;flex:0 0 auto;white-space:nowrap}
+  .gate.on{background:#FBEEE9;border-color:#DFB5A4;color:#A0522D;font-weight:500}
+  .gate:disabled{opacity:.35;cursor:default}
+  #holdList{display:grid;grid-template-columns:1fr;gap:2px;margin-bottom:9px}
+  .hold{display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--sub)}
+  .hold .pinp{width:46px;flex:0 0 46px;padding:1px 3px;font-size:10.5px;text-align:right}
+  .hold .hl{font-size:9.5px;color:var(--faint)}
+  .hold .pinp:first-of-type{margin-right:2px}
+  .hold .pinp::-webkit-outer-spin-button,
+  .hold .pinp::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .hold .pinp{-moz-appearance:textfield;appearance:textfield}
+  .rh{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--sub);min-width:0}
+  .rh .pname{width:24px;flex:0 0 24px;font-size:11px}
+  .rh .pinp{width:48px;flex:0 0 48px;padding:1px 4px;font-size:10.5px}
+  .rh .pinp:disabled{color:var(--faint);background:#F7F4EC}
+  .bh{display:flex;align-items:baseline;gap:6px;margin-bottom:5px;
+    padding-top:2px;border-top:1px solid #F2EDE2}
+  .bh span{font-size:10px;color:var(--sub);letter-spacing:.02em}
+  .evrow{display:flex;align-items:center;gap:7px;font-size:11.5px;padding:4px 0;
+    border-top:1px solid #F2EDE2}
+  .evrow:first-child{border-top:none;padding-top:0}
+  .evt{color:var(--faint);font-variant-numeric:tabular-nums;flex:0 0 44px;
+    width:44px;border:none;background:transparent;font:inherit;font-size:11.5px;
+    padding:0;text-align:right;border-radius:3px;
+    border-bottom:1px dashed #E0D8C8}
+  .evt:hover{color:var(--ink);background:#fff;box-shadow:0 0 0 1px var(--line);border-bottom-color:transparent}
+  .evt:focus{outline:none;color:var(--ink);background:#fff;box-shadow:0 0 0 1px #CFC6B2}
+  .evt::-webkit-outer-spin-button,.evt::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .evt{-moz-appearance:textfield;appearance:textfield}
+  .evx{flex:1;color:var(--ink);min-width:0}
+  .evdel{background:none;border:none;padding:0 3px;color:var(--faint);font-size:15px;
+    line-height:1;cursor:pointer;border-radius:4px}
+  .evdel:hover{color:#C46B4E;background:#FBEEE9}
+  .evempty{font-size:11px;color:var(--faint);line-height:1.65}
+  .kv{display:flex;justify-content:space-between;font-size:11.5px;color:var(--sub);
+    padding:3px 0}
+  .kv b{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
+  .note{font-size:11px;color:var(--faint);line-height:1.6}
+  .note b{font-weight:500;color:var(--ink)}
+
+  @media (max-width:860px) and (orientation:portrait){
+    .app{flex-direction:column}
+    .stage{flex:1 1 auto;min-height:0;padding:8px 8px 0;gap:7px}
+    .cv-wrap{min-height:0}
+    .panel{width:auto;flex:0 0 auto;max-height:38vh;padding:10px 8px 8px;
+      gap:7px;-webkit-overflow-scrolling:touch}
+    .bar{gap:6px}
+    button{padding:7px 10px;font-size:12px}
+    .dur{min-height:26px;font-size:12px;width:58px;flex:0 0 58px}
+    .hint{left:8px;right:8px;bottom:5px;max-width:none;font-size:10.5px;
+      padding:3px 7px;line-height:1.45;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .legend{font-size:11px;top:9px;left:9px}
+  }
+
+  @media (max-height:560px) and (orientation:landscape){
+    .stage{padding:7px;gap:6px}
+    .panel{width:230px;flex:0 0 230px;padding:7px;gap:6px}
+    button{padding:5px 8px;font-size:11.5px}
+    .card{padding:8px 9px}
+    .card h3{margin-bottom:6px}
+    .prow{padding:3px 0}
+  }
+
+  .helpbtn{position:absolute;right:10px;bottom:10px;width:28px;height:28px;
+    border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.9);
+    color:var(--sub);font-size:13px;cursor:pointer;z-index:8;padding:0;
+    display:flex;align-items:center;justify-content:center;font-family:inherit}
+  .helpbtn:hover{background:#fff;color:var(--ink);border-color:#CFC6B2}
+  .help-mask{position:fixed;top:0;right:0;bottom:0;left:0;z-index:60;
+    background:rgba(44,44,42,.3);display:none;padding:22px}
+  .help-mask.on{display:flex}
+  .help-box{background:var(--card);border-radius:12px;width:100%;max-width:660px;
+    margin:auto;max-height:100%;display:flex;flex-direction:column;
+    box-shadow:0 10px 36px rgba(0,0,0,.16);overflow:hidden}
+  .hhead{display:flex;align-items:center;gap:8px;padding:13px 18px;
+    border-bottom:1px solid var(--line);flex:0 0 auto}
+  .hhead b{font-size:12.5px;font-weight:600;color:var(--ink);letter-spacing:.01em}
+  .hhead button{margin-left:auto;font-size:11.5px;padding:4px 10px}
+  .hbody{padding:2px 18px 20px;overflow:auto;-webkit-overflow-scrolling:touch;
+    font-size:12.5px;line-height:1.78;color:var(--sub)}
+  .hbody h4{font-size:11.5px;font-weight:600;color:var(--ink);margin:16px 0 5px;
+    padding-top:13px;border-top:1px solid #F2EDE2;letter-spacing:.02em}
+  .hbody h4:first-child{border-top:none;padding-top:0;margin-top:12px}
+  .hbody p{margin:5px 0}
+  .hbody ol{margin:4px 0;padding-left:18px}
+  .hbody li{margin:2px 0}
+  .hbody b{color:var(--ink);font-weight:500}
+  .hbody code{background:#F6F2E9;border-radius:4px;padding:0 4px;font-size:11.5px;
+    font-family:ui-monospace,Menlo,Consolas,monospace;color:#8A5A2B}
+  .hbody .tip{background:#FBF6EA;border-left:2px solid #E3C679;padding:7px 11px;
+    border-radius:0 5px 5px 0;margin:9px 0;font-size:11.5px;line-height:1.68}
+  .hbody .lim{background:#FAF3F1;border-left:2px solid #DDB5A6;padding:7px 11px;
+    border-radius:0 5px 5px 0;margin:9px 0;font-size:11.5px;line-height:1.68}
+  .hbody details{border:1px solid #EFE7D6;border-radius:7px;margin:7px 0;background:#FDFAF3}
+  .hbody details[open]{background:#FDFCF8}
+  .hbody summary{padding:9px 11px;font-size:12px;font-weight:600;color:var(--ink);
+    cursor:pointer;list-style:none;display:flex;align-items:center;gap:7px;outline:none;
+    -webkit-tap-highlight-color:transparent}
+  .hbody summary::-webkit-details-marker{display:none}
+  .hbody summary::before{content:"+";color:#BBAE90;font-weight:400;font-size:13px;
+    width:11px;text-align:center;flex:0 0 11px}
+  .hbody details[open] summary::before{content:"\2212"}
+  .hbody summary:hover{color:#8A5A2B}
+  .hbody .dbody{padding:1px 13px 11px 27px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <div class="bar">
+      <button id="btnPlay">播放</button>
+      <button id="btnReset" class="ghost" title="只把时间轴拉回 0 秒，不删任何跑位和指令">回到 0s</button>
+      <span class="sep"></span>
+      <button id="btnPath" title="给选中的球员加跑位点；再点一次结束">画路线</button>
+      <button id="btnUndo" class="ghost" title="删掉选中球员的最后一个跑位点">退一步</button>
+      <button id="btnClear" class="ghost" title="清空选中球员的整条路线（他的出手也会一起删）">清除路线</button>
+      <button id="btnPass">加传球</button>
+      <button id="btnDef">加防守</button>
+      <button id="btnShot">投篮</button>
+      <div class="spacer"></div>
+      <span style="font-size:11.5px;color:var(--sub)">防守强度</span>
+      <input id="defense" type="range" min="0" max="100" value="62" style="width:92px;flex:0 0 92px"
+        title="0 最松（无球防守人退守篮下，内线很挤）、100 最紧（贴身，内线反而空了）。改完出手卡会立刻重算">
+      <span id="defVal" style="font-size:11.5px;color:var(--sub);width:26px;font-variant-numeric:tabular-nums">62</span>
+    </div>
+    <div class="cv-wrap">
+      <canvas id="cv"></canvas>
+      <div id="errbox"></div>
+      <button id="btnHelp" class="helpbtn" title="使用说明">?</button>
+      <div class="legend">
+        <span class="sw sw-a"></span>进攻
+        <span class="sw sw-d"></span>防守
+        <span class="sw sw-b"></span>球
+        <span class="ver">v6</span>
+      </div>
+      <div class="hint" id="hint">拖动摆位 · 点进攻球员传球 · 选中后点「画路线」再在场上点几个点</div>
+    </div>
+    <div class="tline">
+      <span class="lbl" id="tNow">0.00 s</span>
+      <div class="track">
+        <div class="marks" id="marks"></div>
+        <input id="seek" type="range" min="0" max="1000" step="1" value="0">
+      </div>
+      <input id="durInp" class="dur" type="number" min="5" max="180" step="1" value="60" title="时间轴总长，改大可以布置更长的战术">
+      <button id="btnFit" class="ghost" title="把总长收到编排结束（多给 1.5 秒），播放不会空转">贴合</button>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <div class="card">
+      <h3>编排</h3>
+      <div class="row wrap" style="margin-bottom:6px">
+        <button data-preset="t1" title="4 号背掩护，2 号反跑空切，1 号吊传篮下">① 无球挡拆</button>
+        <button data-preset="t2" title="5 号上提做墙，1 号借挡突破，5 号顺下接球">② 高位挡拆</button>
+        <button data-preset="t3" title="2-3 联防下：高位策应 + 底线穿插">③ 破联防</button>
+      </div>
+      <div class="row wrap" style="margin-bottom:7px">
+        <button data-preset="empty" class="ghost" title="清空所有跑位、传球和防守指令，回到初始站位">空场</button>
+      </div>
+      <div class="note" id="tacNote" style="margin-bottom:9px">①②③ 是三套排好的战术，按下就看全程；「空场」清空一切，自己从零摆。</div>
+      <div class="bh"><span>起步时刻</span><span style="margin-left:auto">秒</span></div>
+      <div id="rhythmList"></div>
+      <div class="bh"><span>跑位点</span><span style="margin-left:auto">到达 / 停留 · 秒</span></div>
+      <div id="holdList"></div>
+      <div id="evList"></div>
+    </div>
+
+    <div class="card">
+      <h3>出手 <span class="tag" id="shotTag">未指定</span></h3>
+      <div class="big" id="bestScore">—</div>
+      <div class="shotmeta" id="bestTime">点工具栏「投篮」，再点一名球员</div>
+      <div class="kv"><span>期望得分 / 回合</span><b id="bestPps">—</b></div>
+      <div class="kv"><span>此刻失误风险</span><b id="toRisk">—</b></div>
+      <div class="kv" title="期望得分 ≥ 1.00 分/回合 的累计时长。联盟平均是 1.10，所以「有窗口」也不等于「划算」。">
+        <span>合格窗口</span><b id="winTime">—</b></div>
+      <div class="note" id="verdict" style="margin-top:5px">—</div>
+
+      <div class="adv">
+        <div class="advrow">
+          <span class="albl">身高</span>
+          <input class="pinp" id="pHeight" type="number" min="1.50" max="2.30" step="0.01" value="1.98">
+          <span class="pct">m</span>
+          <button id="btnJump" class="gate">站投</button>
+        </div>
+        <div class="advline" id="advLine">画一条跑位并出手，这里会给出手高度与仰角建议</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>此刻五人 <span class="tag" id="nowTag"></span></h3>
+      <div id="plist"></div>
+    </div>
+
+    <details class="card" id="paramCard">
+      <summary>模拟参数</summary>
+      <div class="phead"><span></span><span></span><span>运球丢</span><span>罚球丢</span></div>
+      <div id="paramList"></div>
+      <div class="pdiv"></div>
+      <div class="prow2">
+        <span class="dot d">防</span>
+        <span class="pname">压迫</span>
+        <input class="pinp" id="pDto" type="number" min="0" max="100" step="1" value="20">
+        <span class="pct">%</span>
+        <input class="pinp" id="pDft" type="number" min="0" max="100" step="1" value="20">
+        <span class="pct">%</span>
+      </div>
+      <div class="pdiv"></div>
+      <div class="prow2">
+        <span class="dot d" style="background:#8A8578">速</span>
+        <span class="pname" style="width:auto;flex:1">最高跑速</span>
+        <input class="pinp" id="pSpeed" type="number" min="3" max="8" step="0.1" value="6.6">
+        <span class="pct" style="width:auto">m/s</span>
+      </div>
+      <div class="note" style="margin-top:3px">全场速度基准（进攻和防守按同一个比例缩放，所以只调它改不了攻防快慢对比）。职业 6.5–7，业余 5.0–5.5。实际平均约 2/3，起停都要时间。改完要重画跑位。</div>
+      <div class="prow2" style="margin-top:6px">
+        <span class="dot d" style="background:#8A8578">标</span>
+        <span class="pname" style="flex:1;width:auto"></span>
+        <button id="btnCalMen" class="gate on">男子</button>
+        <button id="btnCalWomen" class="gate">女篮</button>
+        <button id="btnCalAm" class="gate">业余</button>
+      </div>
+      <div class="note" style="margin-top:3px">切档会一起改跑速、五人身高、命中率曲线和干扰强度。切完旧跑位要重画。</div>
+      <div class="prow2" style="margin-top:6px">
+        <span class="dot d" style="background:#8A8578">人</span>
+        <span class="pname" style="flex:1;width:auto">盯人/联防</span>
+        <button id="btnManNormal" class="gate on">协防</button>
+        <button id="btnManLazy" class="gate">一盯一</button>
+      </div>
+      <div class="note" style="margin-top:3px">「一盯一」= 内线三人不协防、不收缩，只有上线会压。</div>
+      <div class="prow2" style="margin-top:6px">
+        <span class="dot d">防</span>
+        <span class="pname" style="flex:1;width:auto">体系</span>
+        <button id="btnZone" class="gate">2-3 联防</button>
+      </div>
+      <div class="note" style="margin-top:3px">切换后防守按区域站位、随球整体滑动，不再盯人。</div>
+      <button id="btnSteal" style="width:100%;margin-top:9px">模拟抢断持球人</button>
+      <div class="note" id="stealInfo" style="margin-top:6px">在当前位置抽一次，结果会记进时间轴。</div>
+    </details>
+
+    <div class="card">
+      <h3>吃不吃硬防守</h3>
+      <canvas id="cmp" style="display:block;width:100%;height:94px"></canvas>
+      <div class="note" id="cmpInfo" style="margin-top:7px">
+        把同一套跑位在松防和紧防下各跑一遍，看敞口缩多少。
+      </div>
+      <button id="btnCmp" style="margin-top:8px;width:100%">跑对比</button>
+    </div>
+
+  </aside>
+</div>
+
+
+<div id="helpMask" class="help-mask">
+  <div class="help-box">
+    <div class="hhead">
+      <b>怎么用</b>
+      <button id="helpClose" class="ghost">关闭</button>
+    </div>
+    <div class="hbody">
+      <h4>三步做完一套</h4>
+      <ol>
+        <li><b>摆人</b>：拖场上的圆点。</li>
+        <li><b>跑位</b>：点一个人 →「画路线」→ 在场上连点几个点。</li>
+        <li><b>传球 · 出手</b>：时间轴拖到那一刻 →「加传球」点接球人 /「投篮」点人。</li>
+      </ol>
+      <p>按「播放」看全过程，右侧大字是这一投的命中率。</p>
+      <div class="tip">画路线的起点，取你<b>最后拖到的那一秒</b>。想让他恰好 2.4 秒到位，先把时间轴拖到 2.4 再点场地。<br>
+      删错了：<b>退一步</b> 删最后一个点，<b>清除路线</b> 清整条，事件行右边的 <b>×</b> 删单次传球/防守/出手，<b>空场</b> 清全部。</div>
+
+      <h4>三个数字</h4>
+      <p><b>命中率</b>＝距离基准 × 干扰，三分线外按三分算。</p>
+      <p><b>干扰</b>只算朝篮筐方向的阻挡：站在背后 1.5 米外举手不算；贴到身上 0.6 米内就不看方向了。</p>
+      <p><b>期望得分</b>＝命中率 × 2 或 3，再并进传球可达、失误、犯规改判。<b>1.10 分/回合</b> 是平均线，高过它这套才赚。</p>
+      <div class="tip">动画里进不进，是按这一投的命中率<b>抽一次</b>，同一套战术每次播放结果都一样。它不代表命中率——<b>命中率看大字，动画只帮你看清这条线通到哪</b>。</div>
+      <p>「投篮」卡底部给这一投的<b>出手高度、仰角、球速</b>，是按抛体方程反解的（入射角按 45°，容错最大）。<b>跳投</b>出手点高 0.42 米，封盖干扰打 85 折。</p>
+
+      <details>
+        <summary>时间轴 · 时刻</summary>
+        <div class="dbody">
+          <p>右下角是<b>总长</b>，点一下就能改。旁边<b>「贴合」</b>把总长收到编排结束 +1.5 秒，免得按播放先空转半分钟。</p>
+          <p>事件行最左边的时间、跑位点的到达时刻，<b>都能直接输入</b>。拖轴只能拖到像素，60 秒的轴一格就差零点几秒，要紧的时刻别靠拖。</p>
+          <p><b>等球</b>：不按固定秒数起跑，等他<b>自己把球传出去</b>那一刻。传切用它，别拿停留去凑。<b>停留</b>：到点后站几秒，0 = 边跑边接。</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>防守怎么算</summary>
+        <div class="dbody">
+          <p><b>无球</b>防守人站在<b>球和你防的人之间</b>——所以反跑、背后空切才有身位。压迫越低，间距越大。</p>
+          <p><b>持球</b>防守人永远卡在<b>你和篮筐之间</b>，间距只看压迫，不看你跑多快（也不会被一步过）。</p>
+          <p>「加防守」→ 点防守人 → 点进攻人：<b>夹击</b>是两人守一个，<b>换防</b>是两人对调；同时刻同人再点一遍撤销。</p>
+          <p>切 2-3 联防后没有固定对位，防守指令暂停生效（切回来恢复）。</p>
+          <p>压迫拉满不等于好打：无球人被拉到外线，<b>篮下反而空了</b>；中距和三分就没这运气。</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>三套预置 · 标定</summary>
+        <div class="dbody">
+          <p><b>① 无球挡拆</b> 背掩护 + 反跑空切　<b>② 高位挡拆</b> 做墙 + 顺下　<b>③ 破 2-3</b> 罚球线策应 + 底线穿插。都摆好了，按播放就能看完。</p>
+          <p>标定三档：<b>男子</b> 6.6 m/s · 1.88–2.08 米　<b>女篮</b> 6.0 · 1.76–1.92　<b>业余</b> 5.2 · 1.60–1.72。预置都用业余，按你们报的身高设的。切档后要重画跑位才按新速度走。</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>算不了什么</summary>
+        <div class="dbody">
+          <p><b>一步过人</b>、<b>掩护挡没挡住</b>、<b>假动作和眼神</b>都不进模型。掩护只有一个近似：防守人从非对位者 1.28 米内跑过会降速，两人并排不叠加。</p>
+          <p>失误和罚球是<b>期望值</b>，不是真抽一次运气；防守也不预判你的意图。没有底线发球，只有 2-3 一种联防。</p>
+        </div>
+      </details>
+
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+window.addEventListener('error', function (ev) {
+  var box = document.getElementById('errbox');
+  if (!box) { box = document.createElement('div'); box.id = 'errbox'; document.body.appendChild(box); }
+  box.style.display = 'block';
+  box.textContent = '脚本出错，画面无法显示 · ' + (ev.message || ev.error) + ' · ' + (ev.filename || '') + ':' + (ev.lineno || '');
+});
+window.addEventListener('unhandledrejection', function (ev) {
+  var box = document.getElementById('errbox');
+  if (box) {
+    box.style.display = 'block';
+    box.textContent = '脚本出错 · ' + (ev.reason && ev.reason.message ? ev.reason.message : ev.reason);
+  }
+});
+</script>
+
+<script>
+'use strict';
+
+const FW = 15, FD = 14;
+const RIM = { x: 7.5, y: 1.575 };
+const TRI = 6.75;
+const CORNER = 0.9;
+const HALF = FW / 2 - CORNER;
+const ARC_DY = Math.sqrt(TRI * TRI - HALF * HALF);
+const ARC_Y = RIM.y + ARC_DY;
+const ARC_A = Math.atan2(ARC_DY, HALF);
+
+const ATK_NAMES = ['控卫', '分卫', '小前', '大前', '中锋'];
+const ATK_HOME = [
+  { x: 7.5,  y: 8.8 },
+  { x: 12.8, y: 5.4 },
+  { x: 2.2,  y: 5.4 },
+  { x: 13.9, y: 1.3 },
+  { x: 1.1,  y: 1.3 }
+];
+
+const DT = 1 / 60;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, k) => a + (b - a) * k;
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+const cvs = document.getElementById('cv');
+const ctx = cvs.getContext('2d');
+const view = { scale: 30, ox: 0, oy: 0, w: 0, h: 0 };
+let dirty = true;
+let dprCap = 2;
+const w2s = (x, y) => [view.ox + x * view.scale, view.oy + (FD - y) * view.scale];
+
+const state = {
+  players: [],
+  ball: { holder: 0, to: null, fly: null, x: 0, y: 0 },
+  t: 0,
+  duration: 60,
+  playing: false,
+  defense: 0.62,
+  sel: -1,
+  mode: 'move',
+  defPick: null,
+  userT: 0,
+  pace: 1,
+  durMin: 60,
+  zone: null,
+  calib: 'men',
+  makeScale: 1,
+  contam: 0.32,
+  jumpType: 'set',
+  events: [],
+  defEvents: [],
+  evFired: [],
+  best: null,
+  shot: null,
+  turnover: null,
+  toEvents: [],
+  params: {
+    to: [0.2, 0.2, 0.2, 0.2, 0.2],
+    ft: [0.2, 0.2, 0.2, 0.2, 0.2],
+    dto: 0.2,
+    dft: 0.2
+  },
+  cmp: null,
+  ev: []
+};
+
+function mkPlayer(team, no, name, home) {
+  return {
+    team, no, name,
+    home: { x: home.x, y: home.y },
+    x: home.x, y: home.y,
+    vx: 0, vy: 0,
+    read: { x: home.x, y: home.y },
+    path: [],
+    gate: null,
+    gateOff: null,
+    vmax: team === 'A' ? 6.6 : 6.2,
+    accel: team === 'A' ? 7.0 : 5.6,
+    height: team === 'A' ? CALIB[state.calib].heights[no - 1] : 1.97
+  };
+}
+
+function initPlayers(atkHome) {
+  state.players = [];
+  for (let i = 0; i < 5; i++) {
+    state.players.push(mkPlayer('A', i + 1, ATK_NAMES[i], atkHome[i]));
+  }
+  for (let i = 0; i < 5; i++) {
+    state.players.push(mkPlayer('D', i + 1, '', { x: 7.5, y: 7 }));
+  }
+}
+
+function defSpot(man, gap) {
+  const dx = RIM.x - man.x, dy = RIM.y - man.y;
+  const d = Math.hypot(dx, dy) || 1;
+  return {
+    x: man.x + dx / d * gap,
+    y: man.y + dy / d * gap
+  };
+}
+
+function reset() {
+  dirty = true;
+  state.t = 0;
+  state.best = null;
+  state.winTime = 0;
+  state.turnover = null;
+  state.possStart = 0;
+  state.evFired = state.events.map(() => false);
+  for (let i = 0; i < 5; i++) {
+    const p = state.players[i];
+    p.x = p.home.x; p.y = p.home.y; p.vx = 0; p.vy = 0;
+    p.gateOff = null;
+  }
+  const gap0 = 2.9 - 1.7 * state.defense;
+  const hp = state.players[state.holderStart];
+  const ballPos0 = hp ? { x: hp.x, y: hp.y } : { x: 7.5, y: 9 };
+  for (let i = 0; i < 5; i++) {
+    const m = state.players[i], d = state.players[5 + i];
+    const sp = state.zone === '23' ? zoneSpot23(i, ballPos0) : defSpot(m, gap0);
+    d.x = clamp(sp.x, 0.4, FW - 0.4);
+    d.y = clamp(sp.y, 0.4, FD - 0.4);
+    d.vmax = 5.9 + 0.7 * state.defense;
+    d.accel = 5.2 + 1.1 * state.defense;
+    d.vx = 0; d.vy = 0;
+    d.read.x = d.x; d.read.y = d.y;
+  }
+  state.ball.holder = state.holderStart;
+  state.ball.to = null;
+  state.ball.fly = null;
+  syncBallPos();
+  evaluate();
+}
+
+function syncBallPos() {
+  if (state.ball.fly) return;
+  const h = state.players[state.ball.holder];
+  if (h) { state.ball.x = h.x; state.ball.y = h.y; }
+}
+
+function computeMark(t) {
+  const mark = [0, 1, 2, 3, 4];
+  for (const e of state.defEvents) {
+    if (t >= e.t) mark[e.by - 5] = e.on;
+  }
+  return mark;
+}
+
+function samplePath(path, t) {
+  if (!path.length) return null;
+  if (t <= path[0].t) return { x: path[0].x, y: path[0].y };
+  for (let i = 0; i < path.length - 1; i++) {
+    const p0 = path[i], p1 = path[i + 1];
+    const holdEnd = p0.t + (p0.hold || 0);
+    if (t <= holdEnd) return { x: p0.x, y: p0.y };
+    if (t <= p1.t) {
+      const seg = p1.t - holdEnd;
+      const k = seg <= 0.001 ? 1 : (t - holdEnd) / seg;
+      return {
+        x: lerp(p0.x, p1.x, k),
+        y: lerp(p0.y, p1.y, k)
+      };
+    }
+  }
+  const last = path[path.length - 1];
+  return { x: last.x, y: last.y };
+}
+
+const ZONE_23 = [
+  { x: 4.6, y: 8.0 },
+  { x: 10.4, y: 8.0 },
+  { x: 2.6, y: 4.3 },
+  { x: 7.5, y: 3.4 },
+  { x: 12.4, y: 4.3 }
+];
+
+function zoneSpot23(i, ball) {
+  const base = ZONE_23[i];
+  const bx = clamp((ball.x - 7.5) * 0.34, -2.4, 2.4);
+  const by = clamp((ball.y - 7.2) * 0.26, -1.6, 1.6);
+
+  let x = base.x + bx * (i < 2 ? 1 : 0.72);
+  let y = base.y + by * (i < 2 ? 1 : 0.66);
+
+  const rimD = Math.hypot(ball.x - RIM.x, ball.y - RIM.y);
+  const sink = clamp((6.2 - rimD) / 5, 0, 1) * 0.45;
+  if (i >= 2 && sink > 0.01) {
+    x = lerp(x, RIM.x + (x - RIM.x) * 0.55, sink);
+    y = lerp(y, RIM.y + 1.2, sink * 0.45);
+  }
+
+  const dTo = Math.hypot(base.x - ball.x, base.y - ball.y);
+  const press = clamp(1 - dTo / 5.5, 0, 1) * 0.85;
+  if (press > 0.01) {
+    const dx = ball.x - x, dy = ball.y - y, L = Math.hypot(dx, dy) || 1;
+    x += dx / L * press;
+    y += dy / L * press;
+  }
+
+  return {
+    x: clamp(x, 0.6, FW - 0.6),
+    y: clamp(y, 0.6, FD - 0.6)
+  };
+}
+
+function holdRemain(path, t) {
+  for (let i = 0; i < path.length; i++) {
+    const h = path[i].hold || 0;
+    if (h > 0 && t >= path[i].t && t <= path[i].t + h) {
+      return path[i].t + h - t;
+    }
+  }
+  return 0;
+}
+
+function moveTo(p, tx, ty, dt, slow) {
+  const sf = slow === undefined ? 1 : slow;
+  const vm = p.vmax * state.pace;
+  const ac = p.accel * state.pace;
+  const dx = tx - p.x, dy = ty - p.y;
+  const d = Math.hypot(dx, dy);
+  if (d < 0.035) {
+    p.vx *= Math.pow(0.02, dt);
+    p.vy *= Math.pow(0.02, dt);
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    return;
+  }
+  const sp = Math.hypot(p.vx, p.vy);
+  const stopDist = (sp * sp) / (2 * ac);
+  const want = (d < stopDist ? Math.max(0.12 * state.pace, Math.sqrt(2 * ac * d)) : vm) * sf;
+  let dvx = dx / d * want - p.vx;
+  let dvy = dy / d * want - p.vy;
+  const dv = Math.hypot(dvx, dvy);
+  const cap = (ac * sf + 0.8) * dt;
+  if (dv > cap) { dvx = dvx / dv * cap; dvy = dvy / dv * cap; }
+  p.vx += dvx; p.vy += dvy;
+  p.x += p.vx * dt;
+  p.y += p.vy * dt;
+  p.x = clamp(p.x, 0.3, FW - 0.3);
+  p.y = clamp(p.y, 0.3, FD - 0.3);
+}
+
+function separate() {
+  const ps = state.players;
+  for (let i = 0; i < ps.length; i++) {
+    for (let j = i + 1; j < ps.length; j++) {
+      const a = ps[i], b = ps[j];
+      let dx = b.x - a.x, dy = b.y - a.y;
+      let d = Math.hypot(dx, dy);
+      const R = 0.86;
+      if (d < R && d > 0.0001) {
+        const push = (R - d) * 0.5;
+        dx /= d; dy /= d;
+        a.x -= dx * push; a.y -= dy * push;
+        b.x += dx * push; b.y += dy * push;
+      } else if (d <= 0.0001) {
+        a.x -= 0.02; b.x += 0.02;
+      }
+    }
+  }
+  for (const p of ps) {
+    p.x = clamp(p.x, 0.3, FW - 0.3);
+    p.y = clamp(p.y, 0.3, FD - 0.3);
+  }
+}
+
+function step(dt) {
+  dirty = true;
+  state.t += dt;
+  const t = state.t;
+
+  for (let i = 0; i < 5; i++) {
+    const p = state.players[i];
+    if (p.path.length) {
+      let pathT = t;
+      if (p.gate === 'pass') {
+        if (p.gateOff === null && state.ball.fly && state.ball.holder === i) {
+          p.gateOff = t - p.path[0].t;
+        }
+        pathT = p.gateOff === null ? p.path[0].t : t - p.gateOff;
+      }
+
+      let look = 0.12 + 0.16 * clamp(1 - Math.hypot(p.vx, p.vy) / p.vmax, 0, 1);
+      if (pathT <= p.path[0].t + 1e-6) look = 0;
+      const hr = holdRemain(p.path, pathT);
+      if (hr > 0.001) look = Math.min(look, hr);
+      const tgt = samplePath(p.path, pathT + look);
+      if (tgt) moveTo(p, tgt.x, tgt.y, dt);
+    } else {
+      moveTo(p, p.home.x, p.home.y, dt);
+    }
+  }
+
+  const ballPos = { x: state.ball.x, y: state.ball.y };
+  const rimD = dist(ballPos, RIM);
+  const ballAtRim = clamp((8.6 - rimD) / 5.2, 0, 1);
+  const tau = 0.36 - 0.21 * state.defense;
+  const kLag = 1 - Math.exp(-dt / tau);
+
+  const mark = computeMark(t);
+  const guards = [[], [], [], [], []];
+  for (let i = 0; i < 5; i++) guards[mark[i]].push(i);
+
+  for (let i = 0; i < 5; i++) {
+    const d0 = state.players[5 + i];
+
+    if (state.zone === '23') {
+      const zs = zoneSpot23(i, ballPos);
+      d0.read.x += (zs.x - d0.read.x) * kLag * 0.55;
+      d0.read.y += (zs.y - d0.read.y) * kLag * 0.55;
+      moveTo(d0, zs.x, zs.y, dt);
+      continue;
+    }
+
+    const manIdx = mark[i];
+    const man = state.players[manIdx];
+    const d = state.players[5 + i];
+    const order = guards[manIdx].indexOf(i);
+
+    d.read.x += (man.x - d.read.x) * kLag;
+    d.read.y += (man.y - d.read.y) * kLag;
+
+    const ballD = Math.hypot(ballPos.x - man.x, ballPos.y - man.y);
+    const onBall = ballD < 1.9;
+    const gap = onBall
+      ? 1.5 - 0.55 * state.defense
+      : 2.9 - 1.7 * state.defense + clamp((ballD - 4) / 6, 0, 1) * 0.85;
+
+    let sp;
+    if (order > 0) {
+      const primary = state.players[5 + guards[manIdx][0]];
+      let ax = d.read.x - primary.x, ay = d.read.y - primary.y;
+      let ad = Math.hypot(ax, ay);
+      if (ad < 0.45) {
+        ax = ballPos.x - d.read.x;
+        ay = ballPos.y - d.read.y;
+        ad = Math.hypot(ax, ay);
+        if (ad < 0.45) { ax = 0; ay = 1; ad = 1; }
+      }
+      sp = {
+        x: d.read.x + ax / ad * gap * 0.95,
+        y: d.read.y + ay / ad * gap * 0.95
+      };
+    } else if (onBall) {
+      // 持球防守：目标点必须锚在「他真正站在哪」，不能锚在滞后 0.2 秒的 read 上。
+      // 原来的写法会让人跑得越快、防守贴得越紧（实测静止 1.16 m → 全速 0.86 m），
+      // 等于「突破越多空间越小」，物理上是反的。
+      sp = defSpot(man, gap);
+    } else {
+      // 无球防守：按教科书的「球—人连线」站位（球侧），而不是死死卡在篮筐侧。
+      // 卡在篮筐侧时任何反跑、空切都被提前挡住，无球掩护永远换不来空间。
+      const bx = ballPos.x - man.x, by = ballPos.y - man.y;
+      const bd = Math.hypot(bx, by) || 1;
+      const nearRim = clamp((4.8 - man.y) / 3.6, 0, 1);   // 人已经到篮下就优先护筐
+      const lean = (0.62 + 0.25 * clamp((bd - 3) / 7, 0, 1)) * (1 - 0.72 * nearRim);
+      const goalSide = defSpot(man, gap);
+      sp = {
+        x: lerp(goalSide.x, man.x + bx / bd * gap, lean),
+        y: lerp(goalSide.y, man.y + by / bd * gap, lean)
+      };
+    }
+
+    if (order === 0) {
+      const lazyPost = state.zone === 'man-lazy' && i >= 2;
+
+      if (!onBall && !lazyPost) {
+        // 协防收缩：球到篮下，离球远的人往里收。
+        // 原来只收 30%–50%、目标也是「对位人往篮下挪一半」，
+        // 实测收完还离篮下 3 米，协防和不协防对最后一投完全没区别（0.18 / 0.18）。
+        const weak = clamp((ballD - 2.6) / 5.5, 0, 1);
+        const help = ballAtRim * weak * state.defense;
+        if (help > 0.01) {
+          const hx = lerp(man.x, RIM.x, 0.78);
+          const hy = lerp(man.y, RIM.y, 0.78);
+          sp.x = lerp(sp.x, hx, help);
+          sp.y = lerp(sp.y, hy, help);
+        }
+      }
+    }
+
+    let slow = 1;
+    for (let j = 0; j < 5; j++) {
+      if (j === manIdx) continue;
+      const op = state.players[j];
+      if (Math.hypot(d.x - op.x, d.y - op.y) < 1.28) { slow = 0.34; break; }
+    }
+
+    moveTo(d, clamp(sp.x, 0.4, FW - 0.4), clamp(sp.y, 0.4, FD - 0.4), dt, slow);
+  }
+
+  separate();
+  updateBall(dt);
+
+  for (const e of state.toEvents) {
+    if (!state.turnover && e.t <= state.t + 1e-6) doTurnover(e.by, e.to, 'steal');
+  }
+
+  for (let i = 0; i < state.events.length; i++) {
+    const e = state.events[i];
+    if (!state.evFired[i] && t >= e.t - 1e-6) {
+      state.evFired[i] = true;
+      startPass(e.from, e.to);
+    }
+  }
+
+  evaluate();
+  let bi = -1, bv = -1;
+  for (const e of state.ev) if (e.xpps > bv) { bv = e.xpps; bi = e.i; }
+  if (bi >= 0) {
+    const top = state.ev[bi];
+    if (!state.best || top.xpps > state.best.xpps) {
+      state.best = {
+        xpps: top.xpps, make: top.make, idx: bi, t: state.t,
+        three: top.three, d: top.d, contest: top.contest,
+        survive: top.survive
+      };
+    }
+    if (top.xpps >= 1.0) state.winTime += DT;
+  }
+}
+
+function startPass(from, to) {
+  if (from === to) return;
+  const a = state.players[from], b = state.players[to];
+  if (!a || !b) return;
+  // 球还在空中就要再传（假手递手、一次触球转移）：
+  // 从球当前所在位置起飞，别硬拉回上一个人手里——否则球会瞬移半米。
+  const flying = !!state.ball.fly;
+  const x0 = flying ? state.ball.x : a.x;
+  const y0 = flying ? state.ball.y : a.y;
+  state.ball.holder = from;
+  state.ball.to = to;
+  state.ball.fly = {
+    x0, y0, x1: b.x, y1: b.y,
+    t: 0,
+    dur: Math.max(flying ? 0.12 : 0.18, Math.hypot(b.x - x0, b.y - y0) / 14)
+  };
+}
+
+function updateBall(dt) {
+  const f = state.ball.fly;
+  if (f) {
+    f.t += dt;
+    const k = clamp(f.t / f.dur, 0, 1);
+    state.ball.x = lerp(f.x0, f.x1, k);
+    state.ball.y = lerp(f.y0, f.y1, k);
+    if (k >= 1) {
+      state.ball.holder = state.ball.to;
+      state.ball.to = null;
+      state.ball.fly = null;
+      state.possStart = state.t;
+    }
+  } else {
+    syncBallPos();
+  }
+}
+
+function segDist(p, a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const L2 = dx * dx + dy * dy;
+  if (L2 < 1e-9) return dist(p, a);
+  let k = ((p.x - a.x) * dx + (p.y - a.y) * dy) / L2;
+  k = clamp(k, 0, 1);
+  return Math.hypot(p.x - (a.x + dx * k), p.y - (a.y + dy * k));
+}
+
+const LEAGUE_PPS = 1.10;
+
+function rand01(seed) {
+  let x = seed | 0;
+  x = Math.imul(x ^ (x >>> 15), 2246822507);
+  x = Math.imul(x ^ (x >>> 13), 3266489909);
+  return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
+}
+
+let tickN = 0;
+let toAcc = 0;
+
+function doTurnover(by, to, kind) {
+  if (state.turnover) return;
+  state.turnover = { t: state.t, by, to, kind };
+  state.ball.holder = to;
+  state.ball.to = null;
+  state.ball.fly = null;
+  state.ball.x = state.players[to].x;
+  state.ball.y = state.players[to].y;
+}
+
+function nearestDefender(idx) {
+  let best = 5, bd = 1e9;
+  for (let j = 5; j < 10; j++) {
+    const d = dist(state.players[idx], state.players[j]);
+    if (d < bd) { bd = d; best = j; }
+  }
+  return best;
+}
+
+function isThree(x, y) {
+  if (y < ARC_Y && (x < CORNER || x > FW - CORNER)) return true;
+  return Math.hypot(x - RIM.x, y - RIM.y) > TRI;
+}
+
+function baseMakeRaw(d, three) {
+  if (three) return clamp(0.398 - 0.0075 * (d - 6.9), 0.22, 0.42);
+  if (d < 1.4) return 0.66;
+  if (d < 3.0) return 0.66 - (d - 1.4) * 0.075;
+  if (d < 4.7) return 0.54 - (d - 3.0) * 0.055;
+  return Math.max(0.32, 0.4465 - (d - 4.7) * 0.019);
+}
+
+function baseMake(d, three) {
+  return baseMakeRaw(d, three) * state.makeScale;
+}
+
+function releaseHeight(p) {
+  return p.height + 0.42 + (state.jumpType === 'jump' ? 0.42 : 0);
+}
+
+function heightPenalty(p) {
+  return clamp(1 + (2.40 - releaseHeight(p)) * 0.5, 0.82, 1.25);
+}
+
+const CLOSE_SPEED = 5.0;
+const RELEASE_T = 0.75;
+
+function contestAt(p) {
+  const dx = RIM.x - p.x, dy = RIM.y - p.y;
+  const dl = Math.hypot(dx, dy) || 1;
+  const ux = dx / dl, uy = dy / dl;
+
+  let spatial = 0;
+  let closing = 0;
+  // 干扰分两部分：站着挡在球路上的「空间」+ 还来得及扑过来的「补防」。
+  // 两者都乘同一个「球路权重」(lane)，而且必须是连续的——
+  // 早先用 cos>=0 这种硬门槛，防守人从 90.7° 挪到 91.2°，干扰会从 0.59 直接掉到 0。
+  for (let j = 5; j < 10; j++) {
+    const q = state.players[j];
+    const vx = q.x - p.x, vy = q.y - p.y;
+    const vl = Math.hypot(vx, vy);
+    // 截断取在 4.8 m：closing 刚好在这里自然衰减到 0，
+    // 用 3.0 会在边界上跳 0.27（3.05 m 判 0、2.95 m 判 0.27），拖滑杆能看见。
+    if (vl > 4.8) continue;
+    const cos = vl < 0.02 ? 1 : (vx * ux + vy * uy) / vl;
+    // 方向权重：正前 1 → 侧面 0.38 → 背后 0；
+    // 但贴到身上时方向就不重要了，侧后方 0.5 m 的人手一伸照样能干扰。
+    const dirW = clamp((cos + 0.25) / 0.65, 0, 1);
+    const bodyW = clamp(1 - vl / 1.3, 0, 1);
+    const lane = Math.max(dirW, bodyW);
+    if (lane <= 0.001) continue;
+
+    if (vl < 0.02) { spatial = 1; continue; }
+
+    const near = clamp(1 - vl / 2.6, 0, 1);
+    const face = clamp((cos - 0.15) / 0.85, 0, 1);
+    const lvl = near * (0.55 + 0.45 * face) * lane;
+    if (lvl > spatial) spatial = lvl;
+
+    const tClose = Math.max(0, (vl - 0.85) / CLOSE_SPEED);
+    const c = clamp(1 - tClose / RELEASE_T, 0, 1) * 0.62 * lane;
+    if (c > closing) closing = c;
+  }
+
+  return Math.max(spatial, closing);
+}
+
+function shotOf(i) {
+  const p = state.players[i];
+  const d = dist(p, RIM);
+  const three = isThree(p.x, p.y);
+  const base = baseMake(d, three);
+  const ct = contestAt(p) * (state.jumpType === 'jump' ? 0.85 : 1) * heightPenalty(p);
+  const make = clamp(base * (1 - state.contam * ct), 0.03, 0.95);
+  const pts = three ? 3 : 2;
+  return { make, pts, pps: make * pts, three, d, contest: ct };
+}
+
+const CALIB = {
+  men: {
+    speed: 6.6, makeScale: 1.0, contam: 0.32,
+    heights: [1.88, 1.93, 1.98, 2.03, 2.08],
+    label: '男子职业'
+  },
+  women: {
+    speed: 6.0, makeScale: 0.90, contam: 0.36,
+    heights: [1.76, 1.80, 1.84, 1.86, 1.92],
+    label: '女篮'
+  },
+  amateur: {
+    speed: 5.2, makeScale: 0.86, contam: 0.36,
+    heights: [1.60, 1.62, 1.70, 1.72, 1.70],
+    label: '业余'
+  }
+};
+
+const RIM_H = 3.05;
+
+function shotAdvice(idx) {
+  const p = state.players[idx];
+  const d = Math.max(0.4, dist(p, RIM));
+  const h = releaseHeight(p);
+  const H = RIM_H - h;
+
+  const targetIn = 45 * Math.PI / 180;
+  let tanT = Math.tan(targetIn) + 2 * H / d;
+  let th = Math.atan(Math.max(tanT, 0.06));
+  const maxTh = 74 * Math.PI / 180;
+  if (th > maxTh) th = maxTh;
+
+  const c = Math.cos(th), tn = Math.tan(th);
+  const denom = 2 * c * c * (d * tn - H);
+  const v = denom > 0.02 ? Math.sqrt(9.8 * d * d / denom) : NaN;
+
+  return { d, h, H, deg: th * 180 / Math.PI, v };
+}
+
+function evaluate() {
+  const ball = { x: state.ball.x, y: state.ball.y };
+  const out = [];
+  for (let i = 0; i < 5; i++) {
+    const p = state.players[i];
+    let nd = 99;
+    for (let j = 5; j < 10; j++) {
+      const d = dist(p, state.players[j]);
+      if (d < nd) nd = d;
+    }
+    const holder = state.ball.holder === i;
+    let lane = 99;
+    if (!holder) {
+      for (let j = 5; j < 10; j++) {
+        const d = segDist(state.players[j], ball, p);
+        if (d < lane) lane = d;
+      }
+    }
+    const space = clamp((nd - 0.6) / 2.8, 0, 1);
+    const safe = holder ? 1 : clamp((lane - 0.35) / 1.25, 0, 1);
+    const open = Math.round(space * 100 * (0.45 + 0.55 * safe));
+
+    const sh = shotOf(i);
+    const pPass = holder ? 1 : clamp((lane - 0.3) / 0.9, 0.1, 1);
+
+    const foulP = (sh.three ? 0.03 : 0.05) + (sh.three ? 0.03 : 0.14) * sh.contest;
+    const ftMake = 1 - state.params.ft[i];
+    const foulPts = (sh.three ? 3 : 2) * ftMake;
+    const blended = sh.pps * (1 - foulP) + foulPts * foulP;
+
+    let xpps = blended * pPass;
+    if (state.turnover) xpps = 0;
+
+    const hIdx = state.ball.holder;
+    let survive = 1;
+    if (!state.turnover && hIdx >= 0 && hIdx < 5) {
+      const tr = clamp(state.params.to[hIdx] * (0.8 + state.params.dto), 0, 1);
+      survive = Math.pow(1 - tr, Math.max(0, state.t - state.possStart) / 4);
+    }
+    xpps *= survive;
+
+    out.push({
+      i, nd, lane, open, holder,
+      make: sh.make, three: sh.three, d: sh.d, contest: sh.contest,
+      pps: sh.pps, pPass, xpps,
+      foulP, ftMake, blended, survive
+    });
+  }
+  state.ev = out;
+}
+
+function bestOpenIdx() {
+  let bi = -1, bv = -1;
+  for (const e of state.ev) if (e.xpps > bv) { bv = e.xpps; bi = e.i; }
+  return bi;
+}
+
+// ---------- 绘图 ----------
+
+function resize() {
+  const wrap = cvs.parentElement;
+  let r = wrap.getBoundingClientRect();
+
+  if (r.height < 120 || r.width < 80) {
+    wrap.style.minHeight = Math.round(Math.max(160, window.innerHeight * 0.34)) + 'px';
+    r = wrap.getBoundingClientRect();
+  } else if (wrap.style.minHeight) {
+    wrap.style.minHeight = '';
+    r = wrap.getBoundingClientRect();
+  }
+  const dpr = Math.min(window.devicePixelRatio || 1, dprCap);
+  cvs.width = Math.max(1, Math.round(r.width * dpr));
+  cvs.height = Math.max(1, Math.round(r.height * dpr));
+  cvs.style.width = r.width + 'px';
+  cvs.style.height = r.height + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const pad = r.width < 520 ? 6 : 16;
+  const s = Math.min((r.width - pad * 2) / FW, (r.height - pad * 2) / FD);
+  view.scale = s;
+  view.ox = (r.width - FW * s) / 2;
+  view.oy = (r.height - FD * s) / 2;
+  view.w = r.width;
+  view.h = r.height;
+  cmpLastT = -1;
+  cmpW = 0;
+  dirty = true;
+  if (state.players.length) draw();
+}
+
+const courtBuf = document.createElement('canvas');
+let courtKey = '';
+
+function drawCourt() {
+  const key = view.w.toFixed(1) + '|' + view.h.toFixed(1) + '|' + view.scale.toFixed(3) +
+    '|' + view.ox.toFixed(1) + '|' + view.oy.toFixed(1) + '|' + dprCap;
+  if (courtKey !== key) {
+    const dpr = Math.min(window.devicePixelRatio || 1, dprCap);
+    courtBuf.width = Math.max(1, Math.round(view.w * dpr));
+    courtBuf.height = Math.max(1, Math.round(view.h * dpr));
+    const b = courtBuf.getContext('2d');
+    b.setTransform(dpr, 0, 0, dpr, 0, 0);
+    b.clearRect(0, 0, view.w, view.h);
+    paintCourt(b);
+    courtKey = key;
+  }
+  ctx.clearRect(0, 0, view.w, view.h);
+  ctx.drawImage(courtBuf, 0, 0, view.w, view.h);
+}
+
+function paintCourt(g) {
+  const s = view.scale;
+  g.clearRect(0, 0, view.w, view.h);
+  const [x0, y0] = w2s(0, FD);
+  const w = FW * s, h = FD * s;
+
+  g.fillStyle = '#FCF9F3';
+  g.fillRect(x0, y0, w, h);
+
+  g.strokeStyle = '#CBC2AC';
+  g.lineWidth = 1.1;
+  g.strokeRect(x0 + 0.5, y0 + 0.5, w - 1, h - 1);
+
+  g.fillStyle = '#F0E7D4';
+  const [px0, py0] = w2s(7.5 - 2.45, 5.8);
+  g.fillRect(px0, py0, 4.9 * s, 5.8 * s);
+
+  g.strokeStyle = '#CBC2AC';
+  g.lineWidth = 1.1;
+  g.strokeRect(px0, py0, 4.9 * s, 5.8 * s);
+  const [fx0] = w2s(7.5 - 2.45, 5.8);
+  const [fx1, fy1] = w2s(7.5 + 2.45, 5.8);
+  g.beginPath(); g.moveTo(fx0, fy1); g.lineTo(fx1, fy1); g.stroke();
+
+  const [cx, cy] = w2s(7.5, 5.8);
+  g.beginPath(); g.arc(cx, cy, 1.8 * s, Math.PI, 2 * Math.PI, false); g.stroke();
+
+  const [mx, my] = w2s(7.5, FD);
+  g.beginPath(); g.arc(mx, my, 1.8 * s, 0, Math.PI, false); g.stroke();
+
+  const [rx, ry] = w2s(RIM.x, RIM.y);
+  g.strokeStyle = '#CBC2AC';
+  g.lineWidth = 1.1;
+  g.beginPath();
+  g.arc(rx, ry, TRI * s, Math.PI + ARC_A, 2 * Math.PI - ARC_A, false);
+  g.stroke();
+  const [c1x, c1y] = w2s(CORNER, 0);
+  const [c2x, c2y] = w2s(CORNER, ARC_Y);
+  g.beginPath(); g.moveTo(c1x, c1y); g.lineTo(c2x, c2y); g.stroke();
+  const [c3x, c3y] = w2s(FW - CORNER, 0);
+  const [c4x, c4y] = w2s(FW - CORNER, ARC_Y);
+  g.beginPath(); g.moveTo(c3x, c3y); g.lineTo(c4x, c4y); g.stroke();
+
+  g.beginPath(); g.arc(rx, ry, 1.25 * s, Math.PI, 2 * Math.PI, false); g.stroke();
+
+  g.strokeStyle = '#B9B09C';
+  g.lineWidth = 2.4;
+  const [bx0, by0] = w2s(7.5 - 0.9, 1.2);
+  const [bx1, by1] = w2s(7.5 + 0.9, 1.2);
+  g.beginPath(); g.moveTo(bx0, by0); g.lineTo(bx1, by1); g.stroke();
+
+  g.strokeStyle = '#E8912A';
+  g.lineWidth = 1.6;
+  g.beginPath(); g.arc(rx, ry, 0.225 * s, 0, Math.PI * 2); g.stroke();
+}
+
+function drawPaths() {
+  const s = view.scale;
+  for (const p of state.players.slice(0, 5)) {
+    if (p.path.length < 2) continue;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(216,90,48,.42)';
+    ctx.lineWidth = 1.6;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    const [sx, sy] = w2s(p.path[0].x, p.path[0].y);
+    ctx.moveTo(sx, sy);
+    for (let i = 1; i < p.path.length; i++) {
+      const [px, py] = w2s(p.path[i].x, p.path[i].y);
+      ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    for (let i = 1; i < p.path.length; i++) {
+      const pt = p.path[i];
+      const [px, py] = w2s(pt.x, pt.y);
+      ctx.fillStyle = 'rgba(216,90,48,.55)';
+      ctx.beginPath(); ctx.arc(px, py, 2.6, 0, Math.PI * 2); ctx.fill();
+      if (pt.hold > 0) {
+        ctx.beginPath();
+        ctx.arc(px, py, 5.4, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(216,90,48,.8)';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+      }
+      if (state.sel === state.players.indexOf(p)) {
+        ctx.fillStyle = 'rgba(120,62,38,.92)';
+        ctx.font = '500 10px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('P' + i, px + 6, py + 8);
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+      }
+    }
+    if (p.gate === 'pass' || p.path[0].t > 0.05) {
+      ctx.beginPath();
+      ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#FCF9F3';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(216,90,48,.75)';
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(216,90,48,.85)';
+      ctx.font = '500 10.5px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      if (p.gate === 'pass') {
+        ctx.setLineDash([2, 2]);
+        ctx.beginPath();
+        ctx.arc(sx, sy, 8, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(216,90,48,.6)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.setLineDash([]);
+      } else {
+        ctx.fillText(p.path[0].t.toFixed(1) + 's', sx, sy - 7);
+      }
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+    }
+    ctx.restore();
+  }
+}
+
+function drawPlayers() {
+  const s = view.scale;
+  // 窄屏时球场只有 23 px/m，0.44 的半径会让篮下三个人糊成一团
+  const r = Math.max(7, Math.min(0.42 * s, 16));
+  const bi = bestOpenIdx();
+  const holder = state.ball.holder;
+  const dense = s < 26;
+
+  for (const p of state.players) {
+    const [x, y] = w2s(p.x, p.y);
+    const isA = p.team === 'A';
+    const idx = isA ? p.no - 1 : -1;
+
+    if (isA && idx === bi && state.t > 0.05) {
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(29,158,117,.55)';
+      ctx.lineWidth = 2;
+      ctx.arc(x, y, r + 4.5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (isA && idx === holder) {
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(232,145,42,.9)';
+      ctx.lineWidth = 2.2;
+      ctx.arc(x, y, r + 3, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (isA && idx === state.sel) {
+      ctx.beginPath();
+      ctx.strokeStyle = '#2C2C2A';
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash([3, 3]);
+      ctx.arc(x, y, r + 6, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    ctx.beginPath();
+    ctx.arc(x, y, isA ? r : r * 0.84, 0, Math.PI * 2);
+    if (isA) {
+      ctx.fillStyle = '#D85A30';
+      ctx.fill();
+      ctx.strokeStyle = '#B0441F';
+    } else {
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fill();
+      ctx.strokeStyle = '#185FA5';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = isA ? '#FFFFFF' : '#185FA5';
+    ctx.font = '500 ' + Math.round(clamp((isA ? r : r * 0.84) * 0.95, 9, 14)) + 'px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(p.no), x, y + 0.5);
+  }
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  for (const e of state.ev) {
+    const pct = Math.round(e.make * 100);
+    if (pct < 24) continue;
+    // 手机屏上只留持球人和选中的人，五个数字根本挤不开
+    if (dense && e.i !== holder && e.i !== state.sel) continue;
+    const p = state.players[e.i];
+    const [x, y] = w2s(p.x, p.y);
+    ctx.font = '500 11px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
+    ctx.fillStyle = e.make >= (e.three ? 0.38 : 0.55) ? '#1D9E75'
+      : (e.make >= (e.three ? 0.33 : 0.45) ? '#8A6D1F' : '#A0522D');
+    ctx.fillText(pct, x, y - r - 5);
+  }
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+}
+
+function drawBall() {
+  const [x, y] = w2s(state.ball.x, state.ball.y);
+  const r = Math.max(4.5, 0.15 * view.scale);
+  const bx = x + r * 0.85, by = y - r * 0.95;
+  ctx.beginPath();
+  ctx.arc(bx, by, r, 0, Math.PI * 2);
+  ctx.fillStyle = '#E8912A';
+  ctx.fill();
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+}
+
+function draw() {
+  drawCourt();
+  drawPaths();
+  drawPlayers();
+  if (!drawShotFlight()) drawBall();
+  drawBestLine();
+}
+
+// ---------- 出手动画 ----------
+// 出手时刻之后，球沿抛物线飞向篮筐：进则穿网下落，不进则打框弹出。
+// 整段动画都由 state.t 反算，所以暂停、拖动、倒着拖看到的完全一致。
+const SHOT_AFTER = 0.9;   // 到筐之后（落网 / 弹框）
+
+function shotMade(sh) {
+  return rand01(Math.round(sh.t * 1000) * 7919 + sh.idx * 104729) < sh.make;
+}
+
+function paintBallAt(x, y, r, alpha) {
+  ctx.save();
+  if (alpha !== undefined) ctx.globalAlpha = clamp(alpha, 0, 1);
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = '#E8912A';
+  ctx.fill();
+  ctx.strokeStyle = '#A9541A';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.beginPath();
+  ctx.moveTo(x - r, y);
+  ctx.quadraticCurveTo(x, y - r * 1.25, x + r, y);
+  ctx.moveTo(x - r, y);
+  ctx.quadraticCurveTo(x, y + r * 1.25, x + r, y);
+  ctx.strokeStyle = 'rgba(120,56,20,.7)';
+  ctx.lineWidth = 0.9;
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawShotFlight() {
+  if (!state.shot) return false;
+  const sh = state.shot;
+  const lt = state.t - sh.t;
+  if (lt < 0) return false;
+
+  const s = view.scale;
+  const r = Math.max(4.6, 0.155 * s);
+  const made = shotMade(sh);
+  const fly = clamp(0.42 + 0.075 * sh.d, 0.45, 1.05);   // 远球飞得久一点
+
+  const [ax, ay0] = w2s(sh.x, sh.y);
+  const ay = ay0 - Math.max(7, 0.42 * s);            // 出手点抬到头顶
+  const [rx, ry] = w2s(RIM.x, RIM.y);
+  const dir = rand01(Math.round(sh.t * 100) + sh.idx * 31) < 0.5 ? -1 : 1;
+  const bx = made ? rx : rx + dir * 0.32 * s;         // 打铁就磕在筐沿
+  const by = made ? ry : ry - 0.04 * s;
+
+  if (lt > fly + SHOT_AFTER) return true;              // 演完了，球也不再回到手里
+
+  const chord = Math.hypot(bx - ax, by - ay) || 1;
+  const apex = clamp(chord * 0.16, 26, 68);            // 弧顶：近球抬得明显，远球保持平滑前飞
+  const cx = (ax + bx) / 2;
+  const cy = (ay + by) / 2 - apex * 2;
+
+  const bez = (u) => {
+    const m = 1 - u;
+    return [
+      m * m * ax + 2 * m * u * cx + u * u * bx,
+      m * m * ay + 2 * m * u * cy + u * u * by
+    ];
+  };
+
+  ctx.save();
+
+  if (lt < fly) {
+    const u = clamp(lt / fly, 0, 1);
+    for (let k = 1; k <= 7; k++) {
+      const uu = u - k * 0.028;
+      if (uu <= 0.03) break;
+      const [tx, ty] = bez(uu);
+      ctx.beginPath();
+      ctx.arc(tx, ty, r * (1 - k * 0.09), 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(232,145,42,' + (0.30 * (1 - k / 8)).toFixed(3) + ')';
+      ctx.fill();
+    }
+    const [px, py] = bez(u);
+    paintBallAt(px, py, r * (1 + 0.14 * Math.sin(Math.PI * u)), 1);
+  } else {
+    const p = clamp((lt - fly) / SHOT_AFTER, 0, 1);
+    if (made) {
+      const drop = p * p * (0.55 * s + 14);
+      paintBallAt(rx, ry + drop, r, 1 - clamp((p - 0.42) / 0.58, 0, 1));
+      ctx.beginPath();
+      ctx.arc(rx, ry, 0.32 * s + p * 0.95 * s, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(232,145,42,' + (0.5 * (1 - p)).toFixed(3) + ')';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    } else {
+      const tt = p * SHOT_AFTER;
+      const px = bx + dir * 1.15 * s * tt;
+      const py = by - 1.25 * s * tt + 0.5 * 6.2 * s * tt * tt;
+      paintBallAt(px, py, r, 1 - clamp((p - 0.5) / 0.5, 0, 1));
+    }
+  }
+
+  ctx.restore();
+  return true;
+}
+
+function drawBestLine() {
+  const bi = bestOpenIdx();
+  if (bi < 0 || state.ev[bi].open < 45) return;
+  const p = state.players[bi];
+  const [bx, by] = w2s(state.ball.x, state.ball.y);
+  const [px, py] = w2s(p.x, p.y);
+  ctx.save();
+  ctx.strokeStyle = 'rgba(29,158,117,.5)';
+  ctx.lineWidth = 1.4;
+  ctx.setLineDash([7, 5]);
+  ctx.beginPath();
+  ctx.moveTo(bx, by);
+  ctx.lineTo(px, py);
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ---------- 面板 ----------
+
+const plist = document.getElementById('plist');
+const prowEls = [];
+for (let i = 0; i < 5; i++) {
+  const row = document.createElement('div');
+  row.className = 'prow';
+  row.innerHTML = '<span class="dot">' + (i + 1) + '</span>' +
+    '<span class="pname">' + ATK_NAMES[i] + '</span>' +
+    '<span class="pshot">—</span>' +
+    '<span class="meter"><i style="width:0%"></i></span>' +
+    '<span class="val">0</span>';
+  row.addEventListener('click', () => selectPlayer(i));
+  plist.appendChild(row);
+  prowEls.push({
+    row, bar: row.querySelector('.meter i'),
+    val: row.querySelector('.val'), shot: row.querySelector('.pshot')
+  });
+}
+
+const elTNow = document.getElementById('tNow');
+const durInp = document.getElementById('durInp');
+const elSeek = document.getElementById('seek');
+const elBest = document.getElementById('bestScore');
+const elBestT = document.getElementById('bestTime');
+const elPps = document.getElementById('bestPps');
+const elWin = document.getElementById('winTime');
+const elToRisk = document.getElementById('toRisk');
+const elVerdict = document.getElementById('verdict');
+const elHint = document.getElementById('hint');
+const tacNote = document.getElementById('tacNote');
+const HINT_BASE = '拖球员摆位 · 点球员选中 · 「画路线」编跑位 · 「加传球」编传球';
+
+const paramList = document.getElementById('paramList');
+
+function reSim() {
+  invalidateCmp();
+  seek(state.t);
+}
+
+for (let i = 0; i < 5; i++) {
+  const row = document.createElement('div');
+  row.className = 'prow2';
+  row.innerHTML = '<span class="dot">' + (i + 1) + '</span>' +
+    '<span class="pname">' + ATK_NAMES[i] + '</span>' +
+    '<input class="pinp" type="number" min="0" max="100" step="1" value="20">' +
+    '<span class="pct">%</span>' +
+    '<input class="pinp" type="number" min="0" max="100" step="1" value="20">' +
+    '<span class="pct">%</span>';
+  const ins = row.querySelectorAll('input');
+  ins[0].addEventListener('input', () => {
+    state.params.to[i] = clamp((+ins[0].value || 0) / 100, 0, 1);
+    reSim();
+  });
+  ins[1].addEventListener('input', () => {
+    state.params.ft[i] = clamp((+ins[1].value || 0) / 100, 0, 1);
+    reSim();
+  });
+  paramList.appendChild(row);
+}
+
+document.getElementById('pDto').addEventListener('input', (ev) => {
+  state.params.dto = clamp((+ev.target.value || 0) / 100, 0, 1);
+  reSim();
+});
+document.getElementById('pDft').addEventListener('input', (ev) => {
+  state.params.dft = clamp((+ev.target.value || 0) / 100, 0, 1);
+  reSim();
+});
+
+const V_BASE = 6.6;
+
+const btnCalMen = document.getElementById('btnCalMen');
+const btnCalWomen = document.getElementById('btnCalWomen');
+const btnCalAm = document.getElementById('btnCalAm');
+
+function applyCalib(k) {
+  const c = CALIB[k];
+  state.calib = k;
+  state.makeScale = c.makeScale;
+  state.contam = c.contam;
+
+  for (let i = 0; i < 5; i++) {
+    state.players[i].height = c.heights[i];
+    state.players[5 + i].height = c.heights[i];
+  }
+
+  elSpeed.value = c.speed.toFixed(1);
+  state.pace = clamp(c.speed / V_BASE, 0.45, 1.25);
+
+  syncCalBtn();
+
+  dirty = true;
+  invalidateCmp();
+  if (state.shot) recomputeShot();
+  else seek(state.t);
+  renderAdvice();
+  updatePanel();
+
+  elHint.textContent = k === 'women'
+    ? '已切到女篮标定 · 旧跑位要重画才按新速度走'
+    : k === 'amateur'
+      ? '已切到业余标定 · 五人身高 1.60–1.72 · 旧跑位要重画才按新速度走'
+      : '已切回男子职业标定';
+}
+
+function syncCalBtn() {
+  btnCalMen.classList.toggle('on', state.calib === 'men');
+  btnCalWomen.classList.toggle('on', state.calib === 'women');
+  btnCalAm.classList.toggle('on', state.calib === 'amateur');
+}
+
+btnCalMen.addEventListener('click', () => { if (state.calib !== 'men') applyCalib('men'); });
+btnCalWomen.addEventListener('click', () => { if (state.calib !== 'women') applyCalib('women'); });
+btnCalAm.addEventListener('click', () => { if (state.calib !== 'amateur') applyCalib('amateur'); });
+
+const btnZone = document.getElementById('btnZone');
+const btnManNormal = document.getElementById('btnManNormal');
+const btnManLazy = document.getElementById('btnManLazy');
+
+function syncZoneBtn() {
+  btnManNormal.classList.toggle('on', state.zone === null);
+  btnManLazy.classList.toggle('on', state.zone === 'man-lazy');
+  btnZone.classList.toggle('on', state.zone === '23');
+}
+
+function setZone(v) {
+  state.zone = v;
+  syncZoneBtn();
+  dirty = true;
+  invalidateCmp();
+  seek(state.t);
+  if (state.shot) recomputeShot();
+  if (v === '23' && state.defEvents.length) {
+    elHint.textContent = '已切联防 · 原来的 ' + state.defEvents.length +
+      ' 条「改守谁」指令在联防下不生效（切回盯人才恢复）';
+  }
+}
+
+btnManNormal.addEventListener('click', () => setZone(null));
+btnManLazy.addEventListener('click', () => setZone('man-lazy'));
+btnZone.addEventListener('click', () => setZone(state.zone === '23' ? null : '23'));
+
+const elSpeed = document.getElementById('pSpeed');
+
+function applySpeed(v) {
+  state.pace = clamp(v / V_BASE, 0.45, 1.25);
+  dirty = true;
+  invalidateCmp();
+  seek(state.t);
+  if (state.shot) recomputeShot();
+}
+
+elSpeed.addEventListener('input', () => {
+  applySpeed(clamp(+elSpeed.value || V_BASE, 3, 8));
+});
+
+elSpeed.addEventListener('change', () => {
+  const v = clamp(+elSpeed.value || V_BASE, 3, 8);
+  elSpeed.value = v.toFixed(1);
+  applySpeed(v);
+});
+
+document.getElementById('btnSteal').addEventListener('click', () => {
+  const info = document.getElementById('stealInfo');
+  const h = state.ball.holder;
+  if (h < 0 || h > 4) { info.textContent = '球现在不在进攻方手上'; return; }
+  if (state.turnover) { info.textContent = '这次进攻已经失误了'; return; }
+  const p = clamp(state.params.to[h] * (0.8 + state.params.dto), 0.05, 0.95);
+  if (Math.random() < p) {
+    state.toEvents.push({
+      t: state.t,
+      by: h, to: nearestDefender(h)
+    });
+    seek(state.t);
+    info.textContent = '抢断成功 · 记在 ' + state.t.toFixed(2) + 's';
+  } else {
+    info.textContent = '抢断失败（成功率 ' + Math.round(p * 100) + '%）';
+  }
+});
+
+function updatePanel() {
+  drawCompare();
+  for (let i = 0; i < 5; i++) {
+    const e = state.ev[i];
+    if (!e) continue;
+    const el = prowEls[i];
+    el.bar.style.width = Math.round(e.make * 100) + '%';
+    el.bar.style.background = e.make >= (e.three ? 0.38 : 0.55) ? '#1D9E75'
+      : e.make >= (e.three ? 0.33 : 0.45) ? '#C8A02E' : '#C46B4E';
+    el.val.textContent = Math.round(e.make * 100);
+    el.shot.textContent = e.d.toFixed(1) + 'm' + (e.three ? '·3' : '');
+    el.row.classList.toggle('sel', state.sel === i);
+  }
+  elTNow.textContent = state.t.toFixed(2) + ' s';
+  // 两张卡片的时间基准不一样：出手卡是「那一投」，列表是「播放头这一刻」。
+  // 不标出来，拖到 0.3 秒看见大字 47%、列表却是 29%，会以为是同一个数。
+  elNowTag.textContent = '播放头 ' + state.t.toFixed(2) + 's';
+  if (state.shot) {
+    elShotTag.textContent = '出手 ' + state.shot.t.toFixed(2) + 's';
+    elShotTag.classList.add('live');
+  } else {
+    elShotTag.textContent = '未指定';
+    elShotTag.classList.remove('live');
+  }
+  if (document.activeElement !== durInp) durInp.value = state.duration;
+  // 时间轴精度跟着总长走：每格 0.01 秒。
+  // 固定 1000 格时，60 秒的轴一格 0.06 秒，假手递手那种 0.15 秒的连续传球会被吃掉误差。
+  const grid = Math.round(state.duration * 100);
+  if (+elSeek.max !== grid) elSeek.max = String(grid);
+  elSeek.value = Math.round(clamp(state.t, 0, state.duration) * 100);
+  if (state.turnover) {
+    elBest.textContent = '失误';
+    elBest.style.color = '#993C1D';
+    elBestT.textContent = state.turnover.t.toFixed(2) + 's · ' +
+      (state.turnover.by + 1) + ' 号被防守 ' + (state.turnover.to - 4) + ' 号断下';
+    elPps.textContent = '0.00';
+    elToRisk.textContent = '100%';
+    elVerdict.textContent = '这次进攻没有形成出手';
+    elVerdict.style.color = '#993C1D';
+    elWin.textContent = '—';
+    return;
+  }
+  elBest.style.color = '';
+
+  const src = state.shot || state.best;
+  if (src) {
+    elBest.textContent = Math.round(src.make * 100) + '%';
+    if (state.shot) {
+      const sh = state.shot;
+      elBestT.textContent = (sh.idx + 1) + ' 号 · ' + sh.d.toFixed(1) + 'm ' +
+        (sh.three ? '三分' : '两分') + ' · 干扰 ' + sh.contest.toFixed(2) +
+        ' · 被犯规 ' + Math.round(sh.foulP * 100) + '% · ' + sh.t.toFixed(2) + 's';
+    } else {
+      elBestT.textContent = '还没出手 · 全场最佳在 ' + src.t.toFixed(2) +
+        's（' + (src.idx + 1) + ' 号）· 建议按当前位置估';
+    }
+    elPps.textContent = src.xpps.toFixed(2);
+    const hIdxNow = state.ball.holder;
+    const evNow = (hIdxNow >= 0 && hIdxNow < 5) ? state.ev[hIdxNow] : null;
+    elToRisk.textContent = evNow
+      ? Math.round((1 - evNow.survive) * 100) + '%'
+      : '—';
+    const diff = src.xpps - LEAGUE_PPS;
+    elVerdict.textContent = diff >= 0
+      ? '比联盟平均每回合多 ' + diff.toFixed(2) + ' 分'
+      : '比联盟平均每回合少 ' + Math.abs(diff).toFixed(2) + ' 分';
+    elVerdict.style.color = diff >= 0 ? '#0F6E56' : '#993C1D';
+  } else {
+    elBest.textContent = '—';
+    elBestT.textContent = '点工具栏「投篮」，再点一名球员';
+    elPps.textContent = '—';
+    elToRisk.textContent = '—';
+    elVerdict.textContent = '—';
+    elVerdict.style.color = '';
+  }
+  elWin.textContent = state.winTime > 0.01 ? state.winTime.toFixed(1) + ' s' : '—';
+  renderAdvice();
+}
+
+const cmpCanvas = document.getElementById('cmp');
+const cmpInfo = document.getElementById('cmpInfo');
+let cmpLastT = -1;
+let cmpW = 0, cmpH = 0;
+
+function maxOpenNow() {
+  let m = 0;
+  for (const e of state.ev) if (e.xpps > m) m = e.xpps;
+  return m;
+}
+
+function sampleCurve(defVal) {
+  state.defense = defVal;
+  reset();
+  const total = Math.ceil(state.duration / DT);
+  const pts = [];
+  let nextAt = 0;
+  for (let i = 0; i < total; i++) {
+    step(DT);
+    if (state.t >= nextAt) {
+      pts.push({ t: state.t, v: maxOpenNow() });
+      nextAt += 0.08;
+    }
+  }
+  let peak = 0, peakT = 0, sum = 0, over60 = 0, prev = 0;
+  for (const p of pts) {
+    if (p.v > peak) { peak = p.v; peakT = p.t; }
+    sum += p.v;
+    if (p.v >= 1.0) over60 += p.t - prev;
+    prev = p.t;
+  }
+  return { val: defVal, pts, peak, peakT, avg: pts.length ? sum / pts.length : 0, over60 };
+}
+
+function runCompare() {
+  const savedT = state.t;
+  const savedDef = state.defense;
+  state.playing = false;
+  btnPlay.textContent = '播放';
+
+  const soft = sampleCurve(0.28);
+  const hard = sampleCurve(0.86);
+
+  state.defense = savedDef;
+  state.cmp = { soft, hard, dur: state.duration };
+  seek(savedT);
+  updateCmpText();
+  cmpLastT = -1;
+  drawCompare();
+}
+
+function updateCmpText() {
+  const c = state.cmp;
+  if (!c) {
+    cmpInfo.textContent = '把同一套跑位在松防和紧防下各跑一遍，看期望得分差多少。';
+    return;
+  }
+  const s = c.soft, h = c.hard;
+  const gap = s.avg - h.avg;
+  const winGap = s.over60 - h.over60;
+  let verdict;
+  if (gap < 0.05 && winGap < 0.5) {
+    // 别只说「不吃强度」：如果是篮下出手，多半是两股力正好抵消，不是真的无感
+    const nearRim = state.shot && state.shot.d < 2.4;
+    verdict = nearRim
+      ? '两档几乎一样 —— 出手点在篮下时最典型：贴死外线的收益，正好被「篮下没人护框」抵消掉。'
+      : '两档几乎一样 —— 这套的出手位置对压迫不敏感。';
+  } else if (h.over60 < 0.4) {
+    verdict = '紧防把合格出手窗口关掉了 —— 这套很吃强度。';
+  } else if (h.avg < 0.85) {
+    verdict = '紧防守下这套跑不出合格出手。';
+  } else {
+    verdict = '紧防让每回合少拿 ' + gap.toFixed(2) + ' 分，' +
+      '合格窗口 ' + s.over60.toFixed(1) + 's → ' + h.over60.toFixed(1) + 's。';
+  }
+  cmpInfo.innerHTML =
+    '<span style="color:#1D9E75">松防 28</span> 均值 <b>' + s.avg.toFixed(2) +
+    '</b> 分 · 合格 <b>' + s.over60.toFixed(1) + 's</b><br>' +
+    '<span style="color:#D85A30">紧防 86</span> 均值 <b>' + h.avg.toFixed(2) +
+    '</b> 分 · 合格 <b>' + h.over60.toFixed(1) + 's</b><br>' +
+    '<span style="color:var(--ink)">' + verdict + '</span>';
+}
+
+function drawCompare() {
+  if (cmpLastT >= 0 && Math.abs(state.t - cmpLastT) < 0.03) return;
+  cmpLastT = state.t;
+
+  if (!cmpW || !cmpH) {
+    cmpW = cmpCanvas.clientWidth;
+    cmpH = cmpCanvas.clientHeight;
+  }
+  const w = cmpW, h = cmpH;
+  if (!w || !h) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (cmpCanvas.width !== Math.round(w * dpr) || cmpCanvas.height !== Math.round(h * dpr)) {
+    cmpCanvas.width = Math.round(w * dpr);
+    cmpCanvas.height = Math.round(h * dpr);
+  }
+  const g = cmpCanvas.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+
+  const padT = 6, padB = 6, iw = w - 4, ih = h - padT - padB;
+  const dur = state.cmp ? state.cmp.dur : state.duration;
+  const X = t => 2 + clamp(t / dur, 0, 1) * iw;
+  const Y = v => padT + (1 - clamp(v / 1.6, 0, 1)) * ih;
+
+  g.strokeStyle = '#EAE4D6';
+  g.lineWidth = 1;
+  for (const v of [0, 0.8, 1.6]) {
+    g.beginPath();
+    g.moveTo(2, Y(v));
+    g.lineTo(2 + iw, Y(v));
+    g.stroke();
+  }
+
+  const c = state.cmp;
+
+  g.strokeStyle = 'rgba(24,95,165,.35)';
+  g.setLineDash([4, 3]);
+  g.beginPath();
+  g.moveTo(2, Y(LEAGUE_PPS));
+  g.lineTo(2 + iw, Y(LEAGUE_PPS));
+  g.stroke();
+  g.setLineDash([]);
+
+  if (!c) return;
+
+  g.strokeStyle = 'rgba(44,44,42,.22)';
+  g.setLineDash([3, 3]);
+  g.beginPath();
+  g.moveTo(X(state.t), padT);
+  g.lineTo(X(state.t), padT + ih);
+  g.stroke();
+  g.setLineDash([]);
+
+  const a = c.soft.pts, b = c.hard.pts;
+  const n = Math.min(a.length, b.length);
+  if (n > 1) {
+    g.beginPath();
+    g.moveTo(X(a[0].t), Y(a[0].v));
+    for (let i = 1; i < n; i++) g.lineTo(X(a[i].t), Y(a[i].v));
+    for (let i = n - 1; i >= 0; i--) g.lineTo(X(b[i].t), Y(b[i].v));
+    g.closePath();
+    g.fillStyle = 'rgba(216,90,48,.10)';
+    g.fill();
+  }
+
+  const line = (pts, color) => {
+    g.beginPath();
+    for (let i = 0; i < pts.length; i++) {
+      if (i) g.lineTo(X(pts[i].t), Y(pts[i].v));
+      else g.moveTo(X(pts[i].t), Y(pts[i].v));
+    }
+    g.strokeStyle = color;
+    g.lineWidth = 1.8;
+    g.stroke();
+  };
+  line(c.soft.pts, '#1D9E75');
+  line(c.hard.pts, '#D85A30');
+
+}
+
+function invalidateCmp() {
+  if (!state.cmp) return;
+  state.cmp = null;
+  cmpLastT = -1;
+  updateCmpText();
+  drawCompare();
+}
+
+document.getElementById('btnCmp').addEventListener('click', runCompare);
+
+const elHeight = document.getElementById('pHeight');
+const elAdvLine = document.getElementById('advLine');
+const btnJump = document.getElementById('btnJump');
+
+function shotTargetIdx() {
+  if (state.shot) return state.shot.idx;
+  return state.sel;
+}
+
+function renderAdvice() {
+  const idx = shotTargetIdx();
+  if (idx < 0 || idx > 4) {
+    elAdvLine.textContent = '选中或出手一名球员，这里给出手高度与仰角建议';
+    elHeight.disabled = true;
+    elHeight.value = '';
+    elHeight.placeholder = '—';
+    return;
+  }
+  elHeight.disabled = false;
+  elHeight.placeholder = '';
+  const p = state.players[idx];
+  if (document.activeElement !== elHeight) elHeight.value = p.height.toFixed(2);
+
+  const a = shotAdvice(idx);
+  const vs = isFinite(a.v) ? a.v.toFixed(1) + ' m/s' : '—';
+  const second = state.jumpType === 'jump'
+    ? '出手点 +0.42 m，封盖干扰打 85 折'
+    : '按入射 45° 反解 · 切「跳投」抬高出手点';
+
+  elAdvLine.innerHTML =
+    '出手 <b>' + a.h.toFixed(2) + ' m</b> · 仰角 <b>' + Math.round(a.deg) +
+    '°</b> · 球速 <b>' + vs + '</b><br>' + second;
+}
+
+function recomputeShot() {
+  if (!state.shot) return;
+  const sh = state.shot;
+  const back = state.t;
+
+  seek(sh.t);
+
+  const at = { x: sh.x, y: sh.y };
+  const p = state.players[sh.idx];
+  const rawCt = contestAt(at);
+  const ct = rawCt * (state.jumpType === 'jump' ? 0.85 : 1) * heightPenalty(p);
+
+  sh.contest = ct;
+  sh.make = clamp(baseMake(sh.d, sh.three) * (1 - state.contam * ct), 0.03, 0.95);
+  // 犯规概率跟着干扰走，不然改了防守强度只有命中率动、被犯规率不动
+  sh.foulP = (sh.three ? 0.03 : 0.05) + (sh.three ? 0.03 : 0.14) * ct;
+
+  // 传球可达性 / 失误存活率跟着最新编排走：删了那次传球，这一投就该跟着掉下来
+  const ev = state.ev[sh.idx];
+  if (ev) {
+    sh.survive = ev.survive;
+    sh.pPass = ev.pPass;
+  }
+
+  const pts = sh.three ? 3 : 2;
+  const ftMake = 1 - state.params.ft[sh.idx];
+  sh.xpps = (sh.make * pts * (1 - sh.foulP) + pts * ftMake * sh.foulP) *
+    (sh.pPass === undefined ? 1 : sh.pPass) *
+    (sh.survive === undefined ? 1 : sh.survive);
+
+  // 算完把播放头放回原处，别把用户正在看的那一秒拽走
+  if (Math.abs(back - sh.t) > 0.004) seek(back);
+
+  updatePanel();
+}
+
+elHeight.addEventListener('change', () => {
+  const idx = shotTargetIdx();
+  if (idx < 0 || idx > 4) {
+    elHint.textContent = '先点一名进攻球员（或先指定出手），再改身高';
+    renderAdvice();
+    return;
+  }
+  const v = clamp(+elHeight.value || 1.98, 1.5, 2.3);
+  state.players[idx].height = Math.round(v * 100) / 100;
+  elHeight.value = state.players[idx].height.toFixed(2);
+  dirty = true;
+  invalidateCmp();
+  recomputeShot();
+  renderAdvice();
+  updatePanel();
+  elHint.textContent = ATK_NAMES[idx] + ' · 身高 ' + state.players[idx].height.toFixed(2) + ' m';
+});
+
+btnJump.addEventListener('click', () => {
+  state.jumpType = state.jumpType === 'jump' ? 'set' : 'jump';
+  syncJumpBtn();
+  dirty = true;
+  invalidateCmp();
+  recomputeShot();
+  renderAdvice();
+  updatePanel();
+});
+
+const helpMask = document.getElementById('helpMask');
+
+function openHelp() {
+  helpMask.classList.add('on');
+  helpMask.querySelector('.hbody').scrollTop = 0;
+}
+function closeHelp() {
+  helpMask.classList.remove('on');
+}
+
+document.getElementById('btnHelp').addEventListener('click', openHelp);
+document.getElementById('helpClose').addEventListener('click', closeHelp);
+helpMask.addEventListener('click', (ev) => {
+  if (ev.target === helpMask) closeHelp();
+});
+window.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape' && helpMask.classList.contains('on')) closeHelp();
+});
+
+/* 折叠章节展开后，把它滚进视野（手机上一屏放不下） */
+helpMask.querySelectorAll('.hbody details').forEach((d) => {
+  d.addEventListener('toggle', () => {
+    if (!d.open) return;
+    setTimeout(() => {
+      if (!helpMask.classList.contains('on')) return;
+      const box = helpMask.querySelector('.hbody').getBoundingClientRect();
+      const r = d.getBoundingClientRect();
+      if (r.top < box.top || r.top > box.bottom - 60) {
+        d.scrollIntoView({ block: 'nearest' });
+      }
+    }, 40);
+  });
+});
+
+const marksEl = document.getElementById('marks');
+const evListEl = document.getElementById('evList');
+const elShotTag = document.getElementById('shotTag');
+const elNowTag = document.getElementById('nowTag');
+
+function relinkEvents() {
+  state.events.sort((a, b) => a.t - b.t);
+  let cur = state.holderStart;
+  for (const e of state.events) {
+    e.from = cur;
+    cur = e.to;
+  }
+}
+
+function contentEnd() {
+  let last = 0;
+  for (const p of state.players) {
+    if (p.path.length) {
+      const e = p.path[p.path.length - 1];
+      last = Math.max(last, e.t + (e.hold || 0));
+    }
+  }
+  for (const e of state.events) last = Math.max(last, e.t);
+  for (const e of state.defEvents) last = Math.max(last, e.t);
+  for (const e of state.toEvents) last = Math.max(last, e.t);
+  if (state.shot) last = Math.max(last, state.shot.t);
+  return last;
+}
+
+function recalcDuration() {
+  const last = contentEnd();
+  state.duration = Math.max(state.durMin, Math.ceil(last + 1.5));
+  const di = document.getElementById('durInp');
+  if (di && document.activeElement !== di) di.value = state.duration;
+}
+
+function pathLabel(i) {
+  const p = state.players[i];
+  if (!p.path.length) return ATK_NAMES[i] + ' · 还没画跑位';
+  const st = p.path[0].t;
+  const n = p.path.length - 1;
+  if (p.gate === 'pass') {
+    return ATK_NAMES[i] + ' · 传球离手才起跑 · ' + n + ' 个点';
+  }
+  return ATK_NAMES[i] +
+    (st > 0.05 ? ' · ' + st.toFixed(2) + 's 才起跑' : ' · 0.00s 起') +
+    ' · ' + n + ' 个点';
+}
+
+const rhythmEl = document.getElementById('rhythmList');
+
+function renderRhythm() {
+  rhythmEl.innerHTML = '';
+  for (let i = 0; i < 5; i++) {
+    const p = state.players[i];
+    const row = document.createElement('div');
+    row.className = 'rh';
+
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.textContent = i + 1;
+
+    const nm = document.createElement('span');
+    nm.className = 'pname';
+    nm.textContent = ATK_NAMES[i];
+
+    const inp = document.createElement('input');
+    inp.className = 'pinp';
+    inp.type = 'number';
+    inp.min = '0';
+    inp.max = '20';
+    inp.step = '0.1';
+    if (p.path.length) {
+      inp.value = p.path[0].t.toFixed(2);
+      inp.addEventListener('change', () => {
+        const v = clamp(+inp.value || 0, 0, Math.max(state.duration, 20));
+        shiftPathStart(i, Math.round(v * 100) / 100);
+      });
+    } else {
+      inp.placeholder = '—';
+      inp.disabled = true;
+    }
+    if (p.gate === 'pass') {
+      inp.disabled = true;
+      inp.title = '起跑时刻由传球决定';
+    }
+
+    const unit = document.createElement('span');
+    unit.className = 'pct';
+    unit.textContent = 's';
+
+    const g = document.createElement('button');
+    g.className = 'gate' + (p.gate === 'pass' ? ' on' : '');
+    g.textContent = '等球';
+    g.disabled = !p.path.length;
+    g.title = p.gate === 'pass'
+      ? '已设定：把球传出去之后才开始跑'
+      : '设定成「把球传出去之后才开始跑」';
+    g.addEventListener('click', () => {
+      p.gate = p.gate === 'pass' ? null : 'pass';
+      p.gateOff = null;
+      renderRhythm();
+
+      if (p.gate === 'pass') {
+        const has = state.events.some(function (e) { return e.from === i; });
+        elHint.textContent = has
+          ? ATK_NAMES[i] + ' · 等自己的传球离手后起跑'
+          : ATK_NAMES[i] + ' · 等传球，但还没有让他传球的指令';
+      } else if (state.sel === i) {
+        elHint.textContent = pathLabel(i);
+      }
+
+      invalidateCmp();
+      seek(Math.min(state.t, state.duration));
+    });
+
+    row.appendChild(dot);
+    row.appendChild(nm);
+    row.appendChild(inp);
+    row.appendChild(unit);
+    row.appendChild(g);
+    rhythmEl.appendChild(row);
+  }
+}
+
+function shiftPathStart(i, newT) {
+  const p = state.players[i];
+  if (!p.path.length) return;
+  const d = newT - p.path[0].t;
+  if (Math.abs(d) < 0.005) return;
+  for (const q of p.path) {
+    q.t = Math.max(0, Math.round((q.t + d) * 100) / 100);
+  }
+  recalcDuration();
+  renderEvents();
+  renderRhythm();
+  invalidateCmp();
+  seek(Math.min(state.t, state.duration));
+}
+
+const holdEl = document.getElementById('holdList');
+
+function renderHolds() {
+  holdEl.innerHTML = '';
+  const p = state.sel >= 0 ? state.players[state.sel] : null;
+
+  if (!p || p.path.length < 2) {
+    const d = document.createElement('div');
+    d.className = 'evempty';
+    d.textContent = state.sel >= 0
+      ? '这名球员还没有跑位点。画两个点之后，这里能改每个点的到达时刻和停留。'
+      : '选中一名球员，这里列出他的每个跑位点。';
+    holdEl.appendChild(d);
+    return;
+  }
+
+  for (let k = 1; k < p.path.length; k++) {
+    const pt = p.path[k];
+    const w = document.createElement('label');
+    w.className = 'hold';
+
+    const nm = document.createElement('span');
+    nm.textContent = 'P' + k;
+
+    const l1 = document.createElement('span');
+    l1.className = 'hl';
+    l1.textContent = '到';
+
+    const ti = document.createElement('input');
+    ti.className = 'pinp';
+    ti.type = 'number';
+    ti.min = '0';
+    ti.max = '180';
+    ti.step = '0.05';
+    ti.value = pt.t.toFixed(2);
+    ti.title = '第 ' + k + ' 点：几点几分到（秒）· 改小 = 更早到，后面几个点会跟着往后推';
+    ti.addEventListener('change', () => {
+      setPathTime(state.sel, k, Math.round((+ti.value || 0) * 100) / 100);
+    });
+
+    const l2 = document.createElement('span');
+    l2.className = 'hl';
+    l2.textContent = '停';
+
+    const hi = document.createElement('input');
+    hi.className = 'pinp';
+    hi.type = 'number';
+    hi.min = '0';
+    hi.max = '3';
+    hi.step = '0.1';
+    hi.value = (pt.hold || 0).toFixed(1);
+    hi.title = '到这里停几秒。0 = 不停，直接接着跑';
+    hi.addEventListener('change', () => {
+      const v = clamp(+hi.value || 0, 0, 3);
+      setHold(state.sel, k, Math.round(v * 10) / 10);
+    });
+
+    w.appendChild(nm);
+    w.appendChild(l1);
+    w.appendChild(ti);
+    w.appendChild(l2);
+    w.appendChild(hi);
+    holdEl.appendChild(w);
+  }
+}
+
+// 改某个跑位点的到达时刻。后面的点不能比前面早，最少留 0.1 秒跑动。
+function setPathTime(pi, k, v) {
+  const p = state.players[pi];
+  if (!p || !p.path[k]) return;
+  const minT = p.path[k - 1].t + 0.1;
+  const nv = Math.max(minT, Math.round(v * 100) / 100);
+  p.path[k].t = nv;
+
+  let prev = nv + (p.path[k].hold || 0);
+  for (let q = k + 1; q < p.path.length; q++) {
+    if (p.path[q].t < prev + 0.1) p.path[q].t = Math.round((prev + 0.1) * 100) / 100;
+    prev = p.path[q].t + (p.path[q].hold || 0);
+  }
+
+  recalcDuration();
+  renderRhythm();
+  renderHolds();
+  renderEvents();
+  invalidateCmp();
+  if (state.shot) recomputeShot();
+  seek(Math.min(state.t, state.duration));
+}
+
+function setHold(pi, k, v) {
+  const p = state.players[pi];
+  if (!p || !p.path[k]) return;
+  const oldH = p.path[k].hold || 0;
+  const d = v - oldH;
+  if (Math.abs(d) < 0.005) return;
+
+  p.path[k].hold = v;
+  for (let q = k + 1; q < p.path.length; q++) {
+    const floor = p.path[q - 1].t + (p.path[q - 1].hold || 0) + 0.15;
+    p.path[q].t = Math.max(floor, Math.round((p.path[q].t + d) * 100) / 100);
+  }
+
+  recalcDuration();
+  renderRhythm();
+  renderHolds();
+  renderEvents();
+  invalidateCmp();
+  seek(Math.min(state.t, state.duration));
+}
+
+function renderEvents() {
+  const all = [];
+  for (const e of state.events) {
+    all.push({ kind: 'p', t: e.t, text: (e.from + 1) + ' 号 → ' + (e.to + 1) + ' 号', ref: e });
+  }
+  for (const e of state.defEvents) {
+    all.push({ kind: 'd', t: e.t, text: (e.by - 4) + ' 号改守 ' + (e.on + 1) + ' 号', ref: e });
+  }
+  if (state.turnover) {
+    all.push({
+      kind: 't', t: state.turnover.t, ref: null,
+      text: (state.turnover.by + 1) + ' 号丢球 → 被防守 ' + (state.turnover.to - 4) + ' 号断下'
+    });
+  }
+  if (state.shot) {
+    all.push({
+      kind: 's', t: state.shot.t, ref: state.shot,
+      text: (state.shot.idx + 1) + ' 号出手 ' + Math.round(state.shot.make * 100) + '%'
+    });
+  }
+  all.sort((a, b) => a.t - b.t);
+
+  marksEl.innerHTML = '';
+  for (const e of all) {
+    const d = document.createElement('div');
+    d.className = 'mk' + (e.kind === 'd' ? ' def' : e.kind === 's' ? ' s'
+      : e.kind === 't' ? ' t' : '');
+    d.style.left = (clamp(e.t / state.duration, 0, 1) * 100) + '%';
+    marksEl.appendChild(d);
+  }
+
+  // 正在改某一格时刻时不要重建列表，否则输入框会被换掉、焦点丢失
+  if (evListEl.contains(document.activeElement)) return;
+
+  evListEl.innerHTML = '';
+  if (!all.length) {
+    const p = document.createElement('div');
+    p.className = 'evempty';
+    p.textContent = '还没有传球或防守指令。球会一直停在 ' + (state.holderStart + 1) +
+      ' 号手上，防守全程按默认对位。';
+    evListEl.appendChild(p);
+    return;
+  }
+
+  all.forEach(e => {
+    const row = document.createElement('div');
+    row.className = 'evrow';
+
+    const dot = document.createElement('span');
+    dot.className = 'evdot ' + e.kind;
+
+    // 时刻可以直接改：拖时间轴最多只能拖到最近的像素，
+    // 假手递手要的是 0.48 / 0.78 这种精确值，靠拖滑杆凑不出来。
+    const t = document.createElement('input');
+    t.className = 'evt';
+    t.type = 'number';
+    t.min = '0';
+    t.max = '180';
+    t.step = '0.05';
+    t.value = e.t.toFixed(2);
+    t.title = '改这一刻（秒）';
+    t.addEventListener('change', () => {
+      setEventTime(e.kind, e.ref, +t.value);
+    });
+
+    const x = document.createElement('span');
+    x.className = 'evx';
+    x.textContent = e.text;
+
+    const del = document.createElement('button');
+    del.className = 'evdel';
+    del.textContent = '×';
+    del.title = '删除';
+    del.addEventListener('click', () => {
+      if (e.kind === 'p') removePass(state.events.indexOf(e.ref));
+      else if (e.kind === 's') removeShot();
+      else if (e.kind === 't') removeTurnover();
+      else removeDef(state.defEvents.indexOf(e.ref));
+    });
+
+    row.appendChild(dot);
+    row.appendChild(t);
+    row.appendChild(x);
+    row.appendChild(del);
+    evListEl.appendChild(row);
+  });
+}
+
+// 改某一件事的时刻。传球改了要重新链接「谁传给谁」，出手改了要按新时刻重新量位置和干扰。
+function setEventTime(kind, ref, v) {
+  const val = Math.max(0, Math.round((v || 0) * 100) / 100);
+  if (!ref) return;
+
+  if (kind === 's') {
+    const old = state.shot;
+    if (!old) return;
+    state.shot = null;
+    seek(val);
+    if (!addShot(old.idx)) state.shot = old;
+    return;
+  }
+
+  ref.t = val;
+  if (kind === 'p') {
+    relinkEvents();
+    state.evFired = state.events.map(() => false);
+  } else {
+    state.defEvents.sort((a, b) => a.t - b.t);
+  }
+
+  renderEvents();
+  invalidateCmp();
+  seek(val);
+  if (state.shot) recomputeShot();
+  elHint.textContent = '已改到 ' + val.toFixed(2) + 's';
+}
+
+function addDef(by, on) {
+  if (state.zone === '23') {
+    elHint.textContent = '联防下没有固定对位，「加防守」不生效 · 先切回「协防 / 一盯一」';
+    return false;
+  }
+  const t = Math.round(state.t * 100) / 100;
+  if (by - 5 === on) {
+    elHint.textContent = '防守 ' + (by - 4) + ' 号本来就在守 ' + (on + 1) + ' 号 · 这一刻不用改';
+    return false;
+  }
+  const same = state.defEvents.findIndex(e => Math.abs(e.t - t) < 0.07 && e.by === by);
+  if (same >= 0) {
+    const ex = state.defEvents[same];
+    state.defEvents.splice(same, 1);
+    if (ex.on === on) {
+      // 同一时刻对同一个人再点一次 = 撤销这条指令
+      renderEvents();
+      invalidateCmp();
+      seek(t);
+      elHint.textContent = '已撤销：' + (by - 4) + ' 号从 ' + t.toFixed(2) + 's 起改守 ' + (on + 1) + ' 号';
+      return true;
+    }
+  }
+  state.defEvents.push({ t, by, on });
+  state.defEvents.sort((a, b) => a.t - b.t);
+  renderEvents();
+  invalidateCmp();
+  seek(t);
+  elHint.textContent = t.toFixed(2) + 's · 防守 ' + (by - 4) + ' 号改守 ' + (on + 1) + ' 号';
+  return true;
+}
+
+function removeDef(i) {
+  if (i < 0) return;
+  state.defEvents.splice(i, 1);
+  renderEvents();
+  invalidateCmp();
+  seek(state.t);
+}
+
+function addPass(to) {
+  const t = Math.round(state.t * 100) / 100;
+  const same = state.events.findIndex(e => Math.abs(e.t - t) < 0.07);
+  if (same >= 0) state.events.splice(same, 1);
+  const ev = { t, to };
+  state.events.push(ev);
+  relinkEvents();
+
+  if (ev.from === ev.to) {
+    state.events = state.events.filter(e => e !== ev);
+    relinkEvents();
+    renderEvents();
+    elHint.textContent = '球本来就在 ' + (to + 1) + ' 号手上，这一刻不用传';
+    return false;
+  }
+
+  state.evFired = state.events.map(() => false);
+  renderEvents();
+  invalidateCmp();
+  seek(t);
+  if (state.shot) recomputeShot();
+  elHint.textContent = t.toFixed(2) + 's · ' + (ev.from + 1) + ' 号 → ' + (to + 1) + ' 号';
+  return true;
+}
+
+function removePass(i) {
+  state.events.splice(i, 1);
+  relinkEvents();
+  state.evFired = state.events.map(() => false);
+  renderEvents();
+  invalidateCmp();
+  seek(state.t);
+  if (state.shot) recomputeShot();
+}
+
+const btnPass = document.getElementById('btnPass');
+
+function exitPassMode(keepHint) {
+  state.mode = 'move';
+  btnPass.classList.remove('on');
+  if (!keepHint) elHint.textContent = HINT_BASE;
+}
+
+btnPass.addEventListener('click', () => {
+  if (state.mode === 'pass') { exitPassMode(); return; }
+  state.mode = 'pass';
+  document.getElementById('btnPath').classList.remove('on');
+  document.getElementById('btnDef').classList.remove('on');
+  document.getElementById('btnShot').classList.remove('on');
+  btnPass.classList.add('on');
+  elHint.textContent = '点一个进攻球员当接球人 · 这次传球发生在 ' + state.t.toFixed(2) + 's';
+});
+
+function addShot(idx) {
+  if (state.turnover) {
+    elHint.textContent = '这次进攻在 ' + state.turnover.t.toFixed(2) +
+      's 已经失误 · 先在事件列表把那条「丢球」点 × 删掉';
+    return false;
+  }
+  const t = Math.round(state.t * 100) / 100;
+  seek(t);
+  const p = state.players[idx];
+  const sh = shotOf(idx);
+  const ev = state.ev[idx];
+  state.shot = {
+    t, idx, x: p.x, y: p.y,
+    make: sh.make, xpps: ev ? ev.xpps : sh.pps, three: sh.three,
+    survive: ev ? ev.survive : 1,
+    pPass: ev ? ev.pPass : 1,
+    d: sh.d, contest: sh.contest,
+    foulP: (sh.three ? 0.03 : 0.05) + (sh.three ? 0.03 : 0.14) * sh.contest
+  };
+  renderEvents();
+  updateCmpText();
+  dirty = true;
+  updatePanel();
+  const hasBall = state.ball.holder === idx;
+  elHint.textContent = t.toFixed(2) + 's · ' + (idx + 1) + ' 号在 ' +
+    sh.d.toFixed(1) + ' 米出手 · 命中率 ' + Math.round(sh.make * 100) + '%' +
+    (hasBall ? '' : '（这一刻球不在他手上，期望得分会被传球可达性打折）');
+  return true;
+}
+
+function removeShot() {
+  state.shot = null;
+  renderEvents();
+  dirty = true;
+  updatePanel();
+}
+
+function removeTurnover() {
+  if (state.toEvents.length) {
+    let k = 0;
+    for (let i = 1; i < state.toEvents.length; i++) {
+      if (state.toEvents[i].t < state.toEvents[k].t) k = i;
+    }
+    const ev = state.toEvents.splice(k, 1)[0];
+    const info = document.getElementById('stealInfo');
+    if (info) info.textContent = '已撤销 ' + ev.t.toFixed(2) + 's 的那次抢断';
+  }
+  state.turnover = null;
+  renderEvents();
+  invalidateCmp();
+  seek(Math.min(state.t, state.duration));
+  elHint.textContent = '已撤销失误 · 这次进攻继续';
+}
+
+const btnShot = document.getElementById('btnShot');
+
+function exitShotMode(keepHint) {
+  state.mode = 'move';
+  btnShot.classList.remove('on');
+  if (!keepHint) elHint.textContent = HINT_BASE;
+}
+
+btnShot.addEventListener('click', () => {
+  if (state.mode === 'shot') { exitShotMode(); return; }
+  state.mode = 'shot';
+  ['btnPath', 'btnPass', 'btnDef'].forEach(id => {
+    document.getElementById(id).classList.remove('on');
+  });
+  btnShot.classList.add('on');
+  elHint.textContent = '点一名进攻球员，让他在 ' + state.t.toFixed(2) + 's 出手';
+});
+
+const btnDef = document.getElementById('btnDef');
+
+function exitDefMode(keepHint) {
+  state.mode = 'move';
+  state.defPick = null;
+  btnDef.classList.remove('on');
+  if (!keepHint) elHint.textContent = HINT_BASE;
+}
+
+btnDef.addEventListener('click', () => {
+  if (state.mode === 'def') { exitDefMode(); return; }
+  state.mode = 'def';
+  state.defPick = null;
+  document.getElementById('btnPath').classList.remove('on');
+  btnPass.classList.remove('on');
+  document.getElementById('btnShot').classList.remove('on');
+  btnDef.classList.add('on');
+  elHint.textContent = state.zone === '23'
+    ? '现在是 2-3 联防，没有固定对位 · 防守指令不生效，先切回「协防 / 一盯一」'
+    : '先点一个防守球员（白底蓝框）· 指令生效于 ' + state.t.toFixed(2) + 's';
+});
+
+function selectPlayer(i) {
+  state.sel = i;
+  state.mode = 'move';
+  document.getElementById('btnPath').classList.remove('on');
+  document.getElementById('btnPass').classList.remove('on');
+  document.getElementById('btnDef').classList.remove('on');
+  document.getElementById('btnShot').classList.remove('on');
+  elHint.textContent = pathLabel(i);
+  renderRhythm();
+  renderHolds();
+  dirty = true;
+  updatePanel();
+}
+
+// ---------- 交互 ----------
+
+let drag = null;
+
+function hitTest(mx, my) {
+  let best = -1, bd = 0.78 * view.scale;
+  for (let i = 0; i < state.players.length; i++) {
+    const p = state.players[i];
+    const [sx, sy] = w2s(p.x, p.y);
+    const d = Math.hypot(mx - sx, my - sy);
+    if (d < bd) { bd = d; best = i; }
+  }
+  return best;
+}
+
+function posFromEvent(e) {
+  const r = cvs.getBoundingClientRect();
+  const mx = e.clientX - r.left;
+  const my = e.clientY - r.top;
+  return {
+    mx, my,
+    wx: (mx - view.ox) / view.scale,
+    wy: FD - (my - view.oy) / view.scale
+  };
+}
+
+cvs.addEventListener('pointerdown', (e) => {
+  const p = posFromEvent(e);
+  const hit = hitTest(p.mx, p.my);
+
+  if (state.mode === 'pass') {
+    if (hit >= 0 && hit < 5) {
+      if (addPass(hit)) exitPassMode(true);
+    } else if (hit >= 5) {
+      elHint.textContent = '传球只能点进攻球员（深色圆点）';
+    } else {
+      exitPassMode();  // 点空地 = 退出
+    }
+    return;
+  }
+
+  if (state.mode === 'shot') {
+    if (hit >= 0 && hit < 5) {
+      if (addShot(hit)) exitShotMode(true);
+    } else if (hit >= 5) {
+      elHint.textContent = '出手只能点进攻球员（深色圆点）';
+    } else {
+      exitShotMode();
+    }
+    return;
+  }
+
+  if (state.mode === 'def') {
+    if (hit >= 5) {
+      state.defPick = hit;
+      elHint.textContent = '让防守 ' + (hit - 4) + ' 号去守谁？点一个进攻球员';
+    } else if (hit >= 0 && state.defPick !== null) {
+      if (addDef(state.defPick, hit)) exitDefMode(true);
+    } else if (hit >= 0) {
+      elHint.textContent = '先点一个防守球员（白底蓝框），再点进攻球员';
+    } else {
+      exitDefMode();
+    }
+    return;
+  }
+
+  if (state.mode === 'path' && state.sel >= 0) {
+    if (p.wx > 0.3 && p.wx < FW - 0.3 && p.wy > 0.3 && p.wy < FD - 0.3) {
+      const pl = state.players[state.sel];
+      // 时刻基准用「用户看到的时刻」（userT），不是播放头。
+      // 画完 A 的路线后播放头会停在 A 的最后一个点，若拿它当基准，
+      // 接着画 B 时 B 的第一个点会被扔到 A 结束的那一刻（实测 0.00 → 3.00），
+      // 于是 B 站着不动半场，最后 0.6 秒才跑完两段。
+      const now = Math.round(clamp(state.userT, 0, state.duration) * 100) / 100;
+
+      if (!pl.path.length) {
+        const st = now;
+        pl.path.push({ t: st, x: pl.home.x, y: pl.home.y });
+      }
+
+      const lastPt = pl.path[pl.path.length - 1];
+      const lastT = lastPt.t;
+      const segLen = Math.hypot(p.wx - lastPt.x, p.wy - lastPt.y);
+      const autoDur = Math.max(0.5, segLen / 4.3 + 0.3) / state.pace;
+      const nx = now > lastT + 0.15
+        ? now
+        : Math.round((lastT + autoDur) * 100) / 100;
+
+      pl.path.push({ t: nx, x: p.wx, y: p.wy });
+      recalcDuration();
+      renderEvents();
+      renderRhythm();
+      renderHolds();
+      elHint.textContent = pathLabel(state.sel);
+      invalidateCmp();
+      seek(nx);
+      return;
+    }
+  }
+
+  if (hit < 0) { state.sel = -1; return; }
+  if (hit >= 5) { state.sel = -1; return; }
+
+  // 只暂停，不改播放头：选中一个人不该把你拖到的时间冲掉
+  if (state.playing) {
+    state.playing = false;
+    btnPlay.textContent = '播放';
+    state.userT = state.t;
+  }
+  drag = {
+    idx: hit, moved: false,
+    sx: p.mx, sy: p.my,
+    t0: state.t
+  };
+  // 某些环境（合成事件、已释放的指针）这里会抛 NotFoundError，
+  // 一旦抛出就会把后面的拖拽整个打断，所以兜住。
+  try { cvs.setPointerCapture(e.pointerId); } catch (_) {}
+});
+
+cvs.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  const p = posFromEvent(e);
+  if (!drag.moved && Math.hypot(p.mx - drag.sx, p.my - drag.sy) > 4) drag.moved = true;
+  if (!drag.moved) return;
+  const pl = state.players[drag.idx];
+  pl.home.x = clamp(p.wx, 0.5, FW - 0.5);
+  pl.home.y = clamp(p.wy, 0.5, FD - 0.5);
+  if (pl.path.length) {
+    pl.path[0].x = pl.home.x;
+    pl.path[0].y = pl.home.y;
+  }
+  reset();
+});
+
+cvs.addEventListener('pointerup', (e) => {
+  if (!drag) return;
+  const idx = drag.idx;
+  const moved = drag.moved;
+  const back = drag.t0;
+  drag = null;
+  if (!moved) {
+    selectPlayer(idx);
+  } else {
+    invalidateCmp();
+    // 拖人是在改「初始站位」，拖动过程按 0 秒算；松手后把你原本看的那一秒还回来
+    selectPlayer(idx);
+    if (back > 0.05) seek(back);
+  }
+});
+
+function seek(t) {
+  t = clamp(t, 0, state.duration);
+  reset();
+  // 用 floor：先把整帧走完，剩下的不足一帧用余量补一步。
+  // 原来用 round，导致 seek(12.34) 实际停在 12.333，拖时间轴时有最多 1 帧的偏差。
+  const n = Math.floor(t / DT + 1e-9);
+  for (let i = 0; i < n; i++) {
+    if (state.t >= t) break;
+    step(DT);
+  }
+  const rest = t - state.t;
+  if (rest > 1e-6) step(rest);
+  renderEvents();
+  updatePanel();
+}
+
+const btnPlay = document.getElementById('btnPlay');
+btnPlay.addEventListener('click', () => {
+  if (state.t >= state.duration - 0.01) seek(0);
+  if (state.playing) state.userT = state.t;
+  state.playing = !state.playing;
+  btnPlay.textContent = state.playing ? '暂停' : '播放';
+});
+
+document.getElementById('btnReset').addEventListener('click', () => {
+  state.playing = false;
+  btnPlay.textContent = '播放';
+  seek(0);
+});
+
+document.getElementById('btnPath').addEventListener('click', () => {
+  if (state.sel < 0) {
+    // 没选人时自动选中持球人。以前这里只弹一句提示就 return，
+    // 按钮点下去像坏了（尤其刚「空场」之后）。
+    const h = state.ball.holder;
+    selectPlayer(h >= 0 && h < 5 ? h : 0);
+  }
+  state.mode = state.mode === 'path' ? 'move' : 'path';
+  document.getElementById('btnPath').classList.toggle('on', state.mode === 'path');
+  if (state.mode === 'path') {
+    btnPass.classList.remove('on');
+    document.getElementById('btnDef').classList.remove('on');
+    document.getElementById('btnShot').classList.remove('on');
+  }
+  if (state.mode === 'path') {
+    const pl = state.players[state.sel];
+    const st = pl.path.length ? pl.path[0].t : state.t;
+    elHint.textContent = ATK_NAMES[state.sel] + ' · ' + (st > 0.05
+      ? '从 ' + st.toFixed(2) + 's 起 · 点场地加跑位点 · 再点「画路线」结束'
+      : '从 0.00s 起 · 点场地加跑位点 · 再点「画路线」结束');
+  } else {
+    elHint.textContent = HINT_BASE;
+  }
+});
+
+function undoPathPoint() {
+  if (state.sel < 0) {
+    elHint.textContent = '先选一个进攻球员，再退一步';
+    setTimeout(() => { elHint.textContent = HINT_BASE; }, 1600);
+    return;
+  }
+  const i = state.sel;
+  const p = state.players[i];
+  if (!p.path.length) {
+    elHint.textContent = ATK_NAMES[i] + ' · 还没有跑位可以退';
+    return;
+  }
+
+  if (p.path.length === 1) {
+    p.path = [];
+  } else {
+    p.path.pop();
+  }
+
+  recalcDuration();
+
+  elHint.textContent = p.path.length
+    ? ATK_NAMES[i] + ' · 退回 ' + (p.path.length - 1) + ' 个点（可继续退）'
+    : ATK_NAMES[i] + ' · 跑位已清空';
+
+  renderEvents();
+  renderRhythm();
+  renderHolds();
+  invalidateCmp();
+  seek(Math.min(state.t, state.duration));
+}
+
+document.getElementById('btnUndo').addEventListener('click', undoPathPoint);
+
+document.getElementById('btnClear').addEventListener('click', () => {
+  if (state.sel < 0) {
+    elHint.textContent = '先点一名进攻球员选中，再清除他的路线';
+    setTimeout(() => { elHint.textContent = HINT_BASE; }, 1900);
+    return;
+  }
+  const i = state.sel;
+  state.players[i].path = [];
+  state.players[i].gate = null;
+  state.players[i].gateOff = null;
+  let alsoShot = false;
+  if (state.shot && state.shot.idx === i) {
+    state.shot = null;
+    alsoShot = true;
+  }
+  selectPlayer(i);
+  renderEvents();
+  invalidateCmp();
+  seek(Math.min(state.t, state.duration));
+  elHint.textContent = ATK_NAMES[i] + ' · 路线已清空' + (alsoShot ? '（顺带删掉了他的出手）' : '');
+});
+
+const elDef = document.getElementById('defense');
+const elDefVal = document.getElementById('defVal');
+let defRaf = 0;
+elDef.addEventListener('input', () => {
+  state.defense = +elDef.value / 100;
+  elDefVal.textContent = elDef.value;
+  // 一帧只重算一次：拖滑杆时别把整条时间线算几十遍
+  if (defRaf) return;
+  defRaf = requestAnimationFrame(() => {
+    defRaf = 0;
+    const t = state.t;
+    seek(t);
+    if (state.shot) recomputeShot();
+  });
+});
+
+durInp.addEventListener('change', () => {
+  const v = clamp(Math.round(+durInp.value || 60), 5, 180);
+  state.durMin = v;
+  recalcDuration();
+  durInp.value = state.duration;
+  seek(Math.min(state.t, state.duration));
+  if (state.duration > v + 0.01) {
+    elHint.textContent = '编排排到 ' + state.duration.toFixed(1) +
+      ' 秒，时间轴至少要这么长 · 想缩短就把最后几个跑位点往前挪';
+  } else {
+    elHint.textContent = '时间轴总长 ' + state.duration + ' 秒';
+  }
+});
+
+// 一键把总长收到编排结束：60 秒的轴配 3.6 秒的战术，按播放会有 56 秒空转。
+document.getElementById('btnFit').addEventListener('click', () => {
+  const last = contentEnd();
+  const v = clamp(Math.ceil(last + 1.5), 5, 180);
+  state.durMin = v;
+  recalcDuration();
+  durInp.value = state.duration;
+  seek(Math.min(state.t, state.duration));
+  elHint.textContent = '总长收到 ' + state.duration + ' 秒（编排到 ' + last.toFixed(2) + 's 为止）';
+});
+
+let seekRaf = 0, seekTo = null;
+
+elSeek.addEventListener('input', () => {
+  state.playing = false;
+  btnPlay.textContent = '播放';
+  seekTo = clamp(+elSeek.value / 100, 0, state.duration);
+  state.userT = seekTo;
+  if (!seekRaf) {
+    seekRaf = requestAnimationFrame(() => {
+      seekRaf = 0;
+      seek(seekTo);
+    });
+  }
+});
+
+// ---------- 预设 ----------
+
+const PRESETS = {
+  t1: {
+    name: '① 无球挡拆',
+    steps: '4 号给 2 号背掩护 → 2 号反跑空切 → 1 号等他到篮下再吊传 → 2 号上篮',
+    tip: '① 无球挡拆：4 号在右侧低位做背掩护，2 号借掩护反跑空切，1 号等 2 号踩进禁区才出球。' +
+      '注意——引擎里没有「挡住人」的判定，只有「防守人从非对位者身边 1.28 米内跑过降速到 34%」，' +
+      '所以这里能看的是空位多大、这一投值多少分，看不了掩护成不成功。',
+    home: [
+      { x: 7.5, y: 9.4 },
+      { x: 12.55, y: 4.25 },
+      { x: 2.05, y: 2.25 },
+      { x: 11.05, y: 3.05 },
+      { x: 4.85, y: 7.55 }
+    ],
+    calib: 'amateur',
+    holder: 0,
+    durMin: 6,
+    paths: {
+      1: [
+        { t: 0, x: 12.55, y: 4.25, hold: 0.85 },
+        { t: 1.30, x: 11.20, y: 3.30 },
+        { t: 1.72, x: 9.75, y: 2.10 },
+        { t: 2.10, x: 8.55, y: 1.55, hold: 0.60 }
+      ],
+      3: [
+        { t: 0, x: 11.05, y: 3.05, hold: 1.00 },
+        { t: 1.75, x: 9.55, y: 3.55 },
+        { t: 2.45, x: 9.15, y: 4.65 }
+      ],
+      0: [
+        { t: 0, x: 7.5, y: 9.4, hold: 0.55 },
+        { t: 1.50, x: 8.15, y: 8.85, hold: 1.30 }
+      ],
+      4: [
+        { t: 0, x: 4.85, y: 7.55, hold: 0.70 },
+        { t: 2.20, x: 5.60, y: 6.90 }
+      ],
+      2: [
+        { t: 0, x: 2.05, y: 2.25, hold: 1.00 },
+        { t: 2.40, x: 1.60, y: 2.60 }
+      ]
+    },
+    events: [{ t: 2.02, to: 1 }],
+    shot: { t: 2.85, idx: 1 }
+  },
+
+  t2: {
+    name: '② 高位挡拆',
+    steps: '5 号上提做墙 → 1 号借挡向右运 → 5 号顺下 → 1 号分球篮下 → 5 号上篮',
+    tip: '② 高位挡拆：5 号上提到弧顶右侧做墙，1 号借挡往右运一步，5 号转身顺下，' +
+      '1 号停在 45 度把球塞进篮下。这套的关键是 5 号顺下的时机——太早被跟上，太晚球传不进去。',
+    home: [
+      { x: 7.5, y: 9.4 },
+      { x: 12.85, y: 3.30 },
+      { x: 2.15, y: 4.60 },
+      { x: 4.30, y: 2.10 },
+      { x: 6.00, y: 6.60 }
+    ],
+    calib: 'amateur',
+    holder: 0,
+    durMin: 6,
+    paths: {
+      4: [
+        { t: 0, x: 6.00, y: 6.60 },
+        { t: 1.05, x: 7.90, y: 8.15, hold: 0.40 },
+        { t: 2.25, x: 8.30, y: 5.30 },
+        { t: 3.15, x: 8.25, y: 2.70, hold: 0.55 }
+      ],
+      0: [
+        { t: 0, x: 7.5, y: 9.4, hold: 0.55 },
+        { t: 1.35, x: 8.75, y: 8.70 },
+        { t: 1.95, x: 10.10, y: 7.70 },
+        { t: 2.45, x: 10.60, y: 6.70, hold: 1.60 }
+      ],
+      1: [
+        { t: 0, x: 12.85, y: 3.30, hold: 1.20 },
+        { t: 2.40, x: 13.40, y: 2.70 }
+      ],
+      2: [
+        { t: 0, x: 2.15, y: 4.60, hold: 1.00 },
+        { t: 2.50, x: 2.55, y: 5.40 }
+      ],
+      3: [
+        { t: 0, x: 4.30, y: 2.10, hold: 1.00 },
+        { t: 2.60, x: 3.70, y: 1.90 }
+      ]
+    },
+    events: [{ t: 2.85, to: 4 }],
+    shot: { t: 3.35, idx: 4 }
+  },
+
+  t3: {
+    name: '③ 破 2-3 联防',
+    steps: '1 号传高位 4 号 → 2 号沿底线穿插 → 4 号塞篮下 → 2 号上篮',
+    tip: '③ 破 2-3 联防：联防的软肋在罚球线（两个上线之间）和底线身后。' +
+      '4 号站高位接球把中间那个人钉住，2 号贴着底线从 4 号身后穿过去，4 号回身塞篮下。',
+    home: [
+      { x: 7.5, y: 9.0 },
+      { x: 12.90, y: 1.50 },
+      { x: 2.20, y: 6.20 },
+      { x: 7.50, y: 5.90 },
+      { x: 3.00, y: 2.00 }
+    ],
+    calib: 'amateur',
+    holder: 0,
+    zone: '23',
+    durMin: 6,
+    paths: {
+      0: [
+        { t: 0, x: 7.5, y: 9.0, hold: 0.75 },
+        { t: 1.60, x: 7.90, y: 8.40, hold: 1.60 }
+      ],
+      3: [
+        { t: 0, x: 7.50, y: 5.90, hold: 2.20 },
+        { t: 2.60, x: 7.00, y: 5.20 }
+      ],
+      1: [
+        { t: 0, x: 12.90, y: 1.50, hold: 0.95 },
+        { t: 1.55, x: 10.90, y: 1.25 },
+        { t: 1.95, x: 9.20, y: 1.75 },
+        { t: 2.25, x: 8.55, y: 2.25, hold: 0.65 }
+      ],
+      4: [
+        { t: 0, x: 3.00, y: 2.00, hold: 1.50 },
+        { t: 2.50, x: 4.00, y: 1.70 }
+      ],
+      2: [
+        { t: 0, x: 2.20, y: 6.20, hold: 1.50 },
+        { t: 2.60, x: 2.60, y: 6.90 }
+      ]
+    },
+    events: [{ t: 0.80, to: 3 }, { t: 1.95, to: 1 }],
+    shot: { t: 2.55, idx: 1 }
+  },
+
+  empty: {
+    name: '空场',
+    steps: '',
+    tip: '',
+    home: ATK_HOME.map(h => ({ ...h })),
+    holder: 0,
+    paths: {},
+    events: []
+  }
+};
+
+function applyPreset(key) {
+  const pr = PRESETS[key];
+  state.playing = false;
+  btnPlay.textContent = '播放';
+  // 三套战术按你们自己的身材和跑速标定，切档必须在建人之前
+  if (pr.calib && state.calib !== pr.calib) {
+    const c = CALIB[pr.calib];
+    state.calib = pr.calib;
+    state.makeScale = c.makeScale;
+    state.contam = c.contam;
+    elSpeed.value = c.speed.toFixed(1);
+    state.pace = clamp(c.speed / V_BASE, 0.45, 1.25);
+  }
+  initPlayers(pr.home.map(h => ({ ...h })));
+  state.holderStart = pr.holder;
+  state.events = pr.events.map(e => ({ t: e.t, to: e.to }));
+  relinkEvents();
+  state.zone = pr.zone || null;
+  state.durMin = pr.durMin || 60;
+  state.defEvents = [];
+  state.shot = null;
+  state.toEvents = [];
+  state.turnover = null;
+  for (let i = 0; i < 5; i++) {
+    const ps = pr.paths[i];
+    if (!ps || !ps.length) {
+      state.players[i].path = [];
+      continue;
+    }
+    const arr = ps.map(p => ({ t: p.t, x: p.x, y: p.y, hold: p.hold || 0 }));
+    if (arr[0].t > 0.001) {
+      arr.unshift({ t: 0, x: pr.home[i].x, y: pr.home[i].y, hold: 0 });
+    }
+    state.players[i].path = arr;
+  }
+  // 默认选中持球人：不然「到达后停留」这一栏是空的，
+  // 得先点一个人才有东西可改，跟旁边的「起步时刻」对不上。
+  state.sel = pr.holder === undefined ? 0 : pr.holder;
+  state.mode = 'move';
+  state.userT = 0;
+  document.getElementById('btnPath').classList.remove('on');
+  document.getElementById('btnPass').classList.remove('on');
+  document.getElementById('btnDef').classList.remove('on');
+  document.getElementById('btnShot').classList.remove('on');
+  reset();
+  recalcDuration();
+  state.cmp = null;
+  cmpLastT = -1;
+  updateCmpText();
+  syncJumpBtn();
+  syncZoneBtn();
+  syncCalBtn();
+  renderEvents();
+  renderRhythm();
+  renderHolds();
+  updatePanel();
+
+  if (pr.shot) {
+    seek(pr.shot.t);
+    addShot(pr.shot.idx);
+    seek(0);
+  }
+
+  if (tacNote) {
+    tacNote.textContent = pr.steps
+      ? pr.name + ' · ' + pr.steps
+      : '①②③ 是三套排好的战术，按下就看全程；「空场」清空一切，自己从零摆。';
+  }
+
+  elHint.textContent = pr.tip
+    ? pr.tip
+    : '空场 · 五个人回到初始站位，时间轴 ' + state.duration + ' 秒';
+}
+
+function syncJumpBtn() {
+  btnJump.textContent = state.jumpType === 'jump' ? '跳投' : '站投';
+  btnJump.classList.toggle('on', state.jumpType === 'jump');
+}
+
+document.querySelectorAll('[data-preset]').forEach(b => {
+  b.addEventListener('click', () => applyPreset(b.dataset.preset));
+});
+
+// ---------- 主循环 ----------
+
+let last = 0;
+let frameAcc = 0;
+let slowFrames = 0;
+let frameSamples = 0;
+function loop(now) {
+  if (!last) last = now;
+  let dt = (now - last) / 1000;
+  last = now;
+  if (dt > 0.12) dt = 0.12;
+
+  if (state.playing) {
+    frameAcc += dt;
+    let guard = 0;
+    while (frameAcc >= DT && guard < 12) {
+      guard++;
+      if (state.t >= state.duration) {
+        state.t = state.duration;      // 别显示成 6.02 / 6
+        state.playing = false;
+        btnPlay.textContent = '播放';
+        frameAcc = 0;
+        break;
+      }
+      step(DT);
+      frameAcc -= DT;
+    }
+  } else {
+    frameAcc = 0;
+  }
+
+  if (state.playing || dirty) {
+    draw();
+    updatePanel();
+    dirty = false;
+  }
+
+  if (dt > 0.045) slowFrames++;
+  frameSamples++;
+  if (frameSamples >= 90) {
+    if (slowFrames > 45 && dprCap > 1) {
+      dprCap = 1;
+      resize();
+    }
+    slowFrames = 0;
+    frameSamples = 0;
+  }
+
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener('resize', () => { resize(); });
+if (window.ResizeObserver) new ResizeObserver(() => resize()).observe(cvs.parentElement);
+
+initPlayers(ATK_HOME);
+state.holderStart = 0;
+resize();
+applyPreset('empty');
+draw();
+updatePanel();
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
